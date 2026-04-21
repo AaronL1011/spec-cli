@@ -1,4 +1,5 @@
 BINARY := spec
+BINDIR ?= $(HOME)/.local/bin
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
 LDFLAGS := -ldflags "-s -w -X github.com/nexl/spec-cli/cmd.Version=$(VERSION)"
 GOFLAGS := -trimpath
@@ -9,7 +10,10 @@ build:
 	go build $(GOFLAGS) $(LDFLAGS) -o bin/$(BINARY) .
 
 install:
-	go build $(GOFLAGS) $(LDFLAGS) -o $$(go env GOPATH)/bin/spec .
+	mkdir -p $(BINDIR)
+	go build $(GOFLAGS) $(LDFLAGS) -o $(BINDIR)/$(BINARY) .
+	@echo "Installed $(BINDIR)/$(BINARY)"
+	@echo "If the shell cannot find spec, add $(BINDIR) to PATH (fish: fish_add_path $(BINDIR))"
 
 test:
 	go test ./... -race -count=1

@@ -65,9 +65,14 @@ func Resolve() (*ResolvedConfig, error) {
 		}
 	}
 
-	// Derive specs repo dir from team config path if not set
-	if rc.SpecsRepoDir == "" && rc.TeamConfigPath != "" {
-		rc.SpecsRepoDir = filepath.Dir(rc.TeamConfigPath)
+	// SpecsRepoDir always points to the internal managed clone, not wherever
+	// spec.config.yaml was found. The config file may live in the user's own
+	// checkout of the specs repo, but spec reads and writes through the clone
+	// it controls at ~/.spec/repos/<owner>/<repo>.
+	if rc.SpecsRepoDir == "" && rc.Team != nil &&
+		rc.Team.SpecsRepo.Owner != "" && rc.Team.SpecsRepo.Repo != "" {
+		rc.SpecsRepoDir = filepath.Join(UserConfigDir(), "repos",
+			rc.Team.SpecsRepo.Owner, rc.Team.SpecsRepo.Repo)
 	}
 
 	return rc, nil
