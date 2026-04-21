@@ -53,6 +53,12 @@ func ResetHard(ctx context.Context, dir, ref string) error {
 	return err
 }
 
+// Rebase rebases the current branch onto the given ref.
+func Rebase(ctx context.Context, dir, ref string) error {
+	_, err := Run(ctx, dir, "rebase", ref)
+	return err
+}
+
 // Commit stages all changes and creates a commit.
 func Commit(ctx context.Context, dir, message string) error {
 	if _, err := Run(ctx, dir, "add", "-A"); err != nil {

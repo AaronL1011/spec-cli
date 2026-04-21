@@ -137,6 +137,56 @@ func WithSpecsRepo(ctx context.Context, cfg *config.SpecsRepoConfig, mutate func
 	return fmt.Errorf("push failed after %d retries", maxPushRetries)
 }
 
+// PushLocalEdits commits any uncommitted changes in the specs repo and pushes them.
+// Unlike WithSpecsRepo, which resets to remote state before applying a mutation,
+// PushLocalEdits preserves existing local edits — it is the backing implementation
+// for `spec push`. Returns true if changes were found and pushed.
+// On a push conflict it fetches and rebases rather than hard-resetting, preserving
+// the committed local work.
+func PushLocalEdits(ctx context.Context, cfg *config.SpecsRepoConfig, commitMsg string) (bool, error) {
+	if err := validateToken(cfg); err != nil {
+		return false, err
+	}
+
+	dir := SpecsRepoDir(cfg)
+
+	if err := ensureRemoteURL(ctx, dir, cfg); err != nil {
+		return false, fmt.Errorf("updating remote URL: %w", err)
+	}
+
+	hasChanges, err := HasChanges(ctx, dir)
+	if err != nil {
+		return false, fmt.Errorf("checking local changes: %w", err)
+	}
+	if !hasChanges {
+		return false, nil
+	}
+
+	if err := Commit(ctx, dir, commitMsg); err != nil {
+		return false, fmt.Errorf("committing local edits: %w", err)
+	}
+
+	for attempt := 0; attempt <= maxPushRetries; attempt++ {
+		pushErr := Push(ctx, dir, cfg.Branch)
+		if pushErr == nil {
+			return true, nil
+		}
+		if attempt >= maxPushRetries {
+			return false, fmt.Errorf("push failed after %d retries — another user may have modified the specs repo: %w", maxPushRetries, redactToken(pushErr))
+		}
+		if err := Fetch(ctx, dir); err != nil {
+			return false, fmt.Errorf("fetching after push conflict: %w", redactToken(err))
+		}
+		ref := fmt.Sprintf("origin/%s", cfg.Branch)
+		if err := Rebase(ctx, dir, ref); err != nil {
+			return false, fmt.Errorf("rebasing after push conflict — resolve manually in %s: %w", dir, err)
+		}
+		time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
+	}
+
+	return false, fmt.Errorf("push failed after %d retries", maxPushRetries)
+}
+
 // ReadSpecFile reads a spec file from the specs repo.
 func ReadSpecFile(cfg *config.SpecsRepoConfig, filename string) ([]byte, error) {
 	dir := SpecsRepoDir(cfg)
