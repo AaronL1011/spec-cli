@@ -8,6 +8,7 @@ import (
 
 	"github.com/nexl/spec-cli/internal/adapter"
 	"github.com/nexl/spec-cli/internal/adapter/noop"
+	"github.com/nexl/spec-cli/internal/adapter/resolve"
 	"github.com/nexl/spec-cli/internal/config"
 	"github.com/nexl/spec-cli/internal/markdown"
 	"github.com/nexl/spec-cli/internal/store"
@@ -83,16 +84,20 @@ func readSpecMeta(path string) (*markdown.SpecMeta, error) {
 	return markdown.ReadMeta(path)
 }
 
-// buildRegistry creates an adapter registry from config, using noop adapters for unconfigured.
+// buildRegistry creates an adapter registry from config.
+// Uses resolve.All to wire concrete adapters from spec.config.yaml;
+// falls back to all-noop if no team config is present.
 func buildRegistry(rc *config.ResolvedConfig) *adapter.Registry {
-	var tc *config.TeamConfig
 	if rc.Team != nil {
-		tc = rc.Team
+		reg, warnings := resolve.All(rc.Team)
+		for _, w := range warnings {
+			fmt.Fprintf(os.Stderr, "warning: %s\n", w)
+		}
+		return reg
 	}
-	reg := adapter.NewRegistry(tc)
 
-	// Use noop adapters for everything by default
-	// Concrete adapters will be injected when their PRs land
+	// No team config — all noop
+	reg := adapter.NewRegistry(nil)
 	reg.WithComms(noop.Comms{}).
 		WithPM(noop.PM{}).
 		WithDocs(noop.Docs{}).
@@ -100,7 +105,6 @@ func buildRegistry(rc *config.ResolvedConfig) *adapter.Registry {
 		WithAgent(noop.Agent{}).
 		WithDeploy(noop.Deploy{}).
 		WithAI(noop.AI{})
-
 	return reg
 }
 
