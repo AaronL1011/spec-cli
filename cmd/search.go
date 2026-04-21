@@ -6,6 +6,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	gitpkg "github.com/nexl/spec-cli/internal/git"
 	"github.com/nexl/spec-cli/internal/markdown"
 	"github.com/spf13/cobra"
 )
@@ -29,8 +30,14 @@ func runSearch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	if rc.Team != nil {
+		if _, err := gitpkg.EnsureSpecsRepo(ctx(), &rc.Team.SpecsRepo); err != nil {
+			return fmt.Errorf("syncing specs repo: %w", err)
+		}
+	}
+
 	if rc.SpecsRepoDir == "" {
-		return fmt.Errorf("specs repo not configured")
+		return fmt.Errorf("specs repo not configured — run 'spec config init' to set up")
 	}
 
 	// Search in active specs

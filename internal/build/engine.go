@@ -21,6 +21,7 @@ type Engine struct {
 
 // NewEngine creates a new build engine.
 func NewEngine(db *store.DB, agent adapter.AgentAdapter) *Engine {
+	SetActivityDB(db)
 	return &Engine{db: db, agent: agent}
 }
 

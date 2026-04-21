@@ -39,16 +39,25 @@ func runList(cmd *cobra.Command, args []string) error {
 		return listTriage(rc)
 	}
 
-	if rc.SpecsRepoDir == "" {
-		return fmt.Errorf("specs repo not found — run 'spec config init' and ensure specs repo is configured")
+	if err := requireTeamConfig(rc); err != nil {
+		return err
+	}
+
+	// Ensure specs repo is fresh
+	if _, err := gitpkg.EnsureSpecsRepo(ctx(), &rc.Team.SpecsRepo); err != nil {
+		return fmt.Errorf("syncing specs repo: %w", err)
 	}
 
 	pipeline := rc.Pipeline()
 
 	// Determine the user's role
-	userRole, _ := requireRole(rc)
-	if roleFilter != "" {
-		userRole = roleFilter
+	userRole := roleFilter
+	if userRole == "" {
+		var err error
+		userRole, err = requireRole(rc)
+		if err != nil {
+			return err
+		}
 	}
 
 	// Read all specs

@@ -177,6 +177,77 @@ func TestFindTeamConfigPath(t *testing.T) {
 	}
 }
 
+func TestUserConfig_AIDrafts_DefaultTrue(t *testing.T) {
+	content := `
+user:
+  owner_role: engineer
+  name: Test
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadUserConfig(path)
+	if err != nil {
+		t.Fatalf("LoadUserConfig: %v", err)
+	}
+
+	// When ai_drafts is not set, defaults to true
+	if !cfg.Preferences.AIDraftsEnabled() {
+		t.Error("AIDraftsEnabled() should default to true when not set")
+	}
+}
+
+func TestUserConfig_AIDrafts_ExplicitFalse(t *testing.T) {
+	content := `
+user:
+  owner_role: engineer
+  name: Test
+preferences:
+  ai_drafts: false
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadUserConfig(path)
+	if err != nil {
+		t.Fatalf("LoadUserConfig: %v", err)
+	}
+
+	// When ai_drafts is explicitly false, should be false
+	if cfg.Preferences.AIDraftsEnabled() {
+		t.Error("AIDraftsEnabled() should be false when explicitly set to false")
+	}
+}
+
+func TestUserConfig_AIDrafts_ExplicitTrue(t *testing.T) {
+	content := `
+user:
+  owner_role: engineer
+preferences:
+  ai_drafts: true
+`
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.yaml")
+	if err := os.WriteFile(path, []byte(content), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	cfg, err := LoadUserConfig(path)
+	if err != nil {
+		t.Fatalf("LoadUserConfig: %v", err)
+	}
+
+	if !cfg.Preferences.AIDraftsEnabled() {
+		t.Error("AIDraftsEnabled() should be true when explicitly set")
+	}
+}
+
 func TestDefaultPipelineHasAllStages(t *testing.T) {
 	p := DefaultPipeline()
 	expected := []string{

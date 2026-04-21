@@ -47,22 +47,26 @@ func resolveSpecPath(rc *config.ResolvedConfig, specID string) (string, error) {
 	if rc.SpecsRepoDir == "" {
 		return "", fmt.Errorf("specs repo not configured — ensure spec.config.yaml has specs_repo settings")
 	}
+	return resolveSpecPathIn(rc.SpecsRepoDir, config.ArchiveDir(rc.Team), specID)
+}
 
+// resolveSpecPathIn finds a spec file by ID within a given base directory.
+// Use this inside WithSpecsRepo mutators to ensure the repoPath is used.
+func resolveSpecPathIn(baseDir, archiveDir, specID string) (string, error) {
 	// Check root
-	path := filepath.Join(rc.SpecsRepoDir, specID+".md")
+	path := filepath.Join(baseDir, specID+".md")
 	if _, err := os.Stat(path); err == nil {
 		return path, nil
 	}
 
 	// Check triage/
-	path = filepath.Join(rc.SpecsRepoDir, "triage", specID+".md")
+	path = filepath.Join(baseDir, "triage", specID+".md")
 	if _, err := os.Stat(path); err == nil {
 		return path, nil
 	}
 
 	// Check archive/
-	archiveDir := config.ArchiveDir(rc.Team)
-	path = filepath.Join(rc.SpecsRepoDir, archiveDir, specID+".md")
+	path = filepath.Join(baseDir, archiveDir, specID+".md")
 	if _, err := os.Stat(path); err == nil {
 		return path, nil
 	}
@@ -106,6 +110,11 @@ func buildRegistry(rc *config.ResolvedConfig) *adapter.Registry {
 		WithDeploy(noop.Deploy{}).
 		WithAI(noop.AI{})
 	return reg
+}
+
+// specPathIn is a shorthand for resolveSpecPathIn using the team config's archive dir.
+func specPathIn(repoPath string, rc *config.ResolvedConfig, specID string) (string, error) {
+	return resolveSpecPathIn(repoPath, config.ArchiveDir(rc.Team), specID)
 }
 
 // ctx returns a background context.

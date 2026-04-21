@@ -111,8 +111,23 @@ func (s *SessionState) CurrentPRStep() *PRStep {
 	return nil
 }
 
-// LogActivity appends an entry to the session's activity log file.
+// activityDB is the shared database reference for activity logging.
+// Set via SetActivityDB during engine initialization.
+var activityDB *store.DB
+
+// SetActivityDB sets the database used for activity logging.
+func SetActivityDB(db *store.DB) {
+	activityDB = db
+}
+
+// LogActivity appends an entry to both the SQLite activity log and the session file.
 func LogActivity(specID, entry string) error {
+	// Write to SQLite if available
+	if activityDB != nil {
+		_ = activityDB.ActivityLog(specID, "build", entry, "", "spec")
+	}
+
+	// Also write to session file for backwards compatibility
 	logPath := filepath.Join(SessionDir(specID), "activity.log")
 	f, err := os.OpenFile(logPath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	if err != nil {

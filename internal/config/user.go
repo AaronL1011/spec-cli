@@ -24,7 +24,16 @@ type PreferencesConfig struct {
 	Editor            string   `yaml:"editor"`
 	DashboardSections []string `yaml:"dashboard_sections"`
 	StandupAutoPost   bool     `yaml:"standup_auto_post"`
-	AIDrafts          bool     `yaml:"ai_drafts"`
+	AIDrafts          *bool    `yaml:"ai_drafts,omitempty"`
+}
+
+// AIDraftsEnabled returns whether AI drafts are enabled.
+// Defaults to true if not explicitly set.
+func (p PreferencesConfig) AIDraftsEnabled() bool {
+	if p.AIDrafts == nil {
+		return true
+	}
+	return *p.AIDrafts
 }
 
 // UserConfigDir returns the path to the ~/.spec/ directory.
@@ -65,11 +74,6 @@ func LoadUserConfig(path string) (*UserConfig, error) {
 	if len(cfg.Preferences.DashboardSections) == 0 {
 		cfg.Preferences.DashboardSections = []string{"do", "review", "incoming", "blocked"}
 	}
-	// Default ai_drafts to true unless explicitly set to false
-	// YAML unmarshals missing bool as false, so we check if the field was explicitly set
-	// We default to true - users opt out, not opt in
-	cfg.Preferences.AIDrafts = true
-
 	return &cfg, nil
 }
 
@@ -85,7 +89,6 @@ func LoadUserConfigWithDefaults() (*UserConfig, string) {
 			cfg.Preferences.Editor = "vi"
 		}
 		cfg.Preferences.DashboardSections = []string{"do", "review", "incoming", "blocked"}
-		cfg.Preferences.AIDrafts = true
 		return cfg, path
 	}
 	return cfg, path

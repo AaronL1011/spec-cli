@@ -7,6 +7,7 @@ import (
 
 	"github.com/nexl/spec-cli/internal/build"
 	gitpkg "github.com/nexl/spec-cli/internal/git"
+	"github.com/nexl/spec-cli/internal/markdown"
 	"github.com/spf13/cobra"
 )
 
@@ -62,6 +63,17 @@ func runDo(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("%s not found — run 'spec pull %s' to fetch it", specID, specID)
 		}
+	}
+
+	// Validate spec is at an appropriate stage (build, engineering, or has an active session)
+	meta, err := markdown.ReadMeta(specPath)
+	if err != nil {
+		return err
+	}
+	hasSession, _ := db.SessionGet(specID)
+	if hasSession == "" && meta.Status != "build" && meta.Status != "engineering" {
+		return fmt.Errorf("%s is at %q stage — advance to 'build' before starting: spec advance %s",
+			specID, meta.Status, specID)
 	}
 
 	reg := buildRegistry(rc)

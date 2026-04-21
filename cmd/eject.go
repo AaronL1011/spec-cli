@@ -42,7 +42,7 @@ func runEject(cmd *cobra.Command, args []string) error {
 	reg := buildRegistry(rc)
 
 	return gitpkg.WithSpecsRepo(context.Background(), &rc.Team.SpecsRepo, func(repoPath string) (string, error) {
-		path, err := resolveSpecPath(rc, specID)
+		path, err := specPathIn(repoPath, rc, specID)
 		if err != nil {
 			return "", err
 		}

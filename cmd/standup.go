@@ -2,8 +2,10 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
+	"github.com/nexl/spec-cli/internal/adapter"
 	"github.com/nexl/spec-cli/internal/store"
 	"github.com/spf13/cobra"
 )
@@ -75,12 +77,38 @@ func runStandup(cmd *cobra.Command, args []string) error {
 		if rc.User != nil {
 			autoPost = rc.User.Preferences.StandupAutoPost
 		}
-		if autoPost {
-			fmt.Println("\nPosting to standup channel...")
-			// reg := buildRegistry(rc)
-			// _ = reg.Comms().PostStandup(ctx(), ...)
-		} else {
-			fmt.Println("\nPost to standup channel? [y/N]")
+
+		var yesterday, today, blockers []string
+		for _, e := range entries {
+			yesterday = append(yesterday, fmt.Sprintf("%s: %s", e.SpecID, e.Summary))
+		}
+		if recent != "" {
+			today = append(today, fmt.Sprintf("Continue %s", recent))
+		}
+
+		standupReport := adapter.StandupReport{
+			UserName:  userName,
+			Date:      date,
+			Yesterday: yesterday,
+			Today:     today,
+			Blockers:  blockers,
+		}
+
+		should := autoPost
+		if !autoPost {
+			fmt.Print("\nPost to standup channel? [y/N] ")
+			var answer string
+			fmt.Scanln(&answer)
+			should = strings.ToLower(strings.TrimSpace(answer)) == "y"
+		}
+
+		if should {
+			reg := buildRegistry(rc)
+			if err := reg.Comms().PostStandup(ctx(), standupReport); err != nil {
+				fmt.Printf("Warning: could not post standup: %v\n", err)
+			} else {
+				fmt.Println("✓ Standup posted.")
+			}
 		}
 	}
 

@@ -1,10 +1,13 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"strings"
 
+	gitpkg "github.com/nexl/spec-cli/internal/git"
 	"github.com/nexl/spec-cli/internal/markdown"
+	"github.com/nexl/spec-cli/internal/pipeline"
 	"github.com/spf13/cobra"
 )
 
@@ -59,10 +62,34 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("triggering deployment: %w", err)
 	}
 
-	if run != nil {
+	if run != nil && run.URL != "" {
 		fmt.Printf("✓ Deployment triggered: %s\n", run.URL)
 	} else {
 		fmt.Println("✓ Deployment triggered.")
+	}
+
+	// Transition spec to 'deploying' if post-merge stages are configured
+	pl := rc.Pipeline()
+	if pl.StageByName("deploying") != nil && meta.Status == "done" {
+		err = gitpkg.WithSpecsRepo(context.Background(), &rc.Team.SpecsRepo, func(repoPath string) (string, error) {
+			specPath, err := specPathIn(repoPath, rc, specID)
+			if err != nil {
+				return "", err
+			}
+			latestMeta, err := markdown.ReadMeta(specPath)
+			if err != nil {
+				return "", err
+			}
+			if _, err := pipeline.Advance(specPath, latestMeta, "deploying"); err != nil {
+				return "", err
+			}
+			return fmt.Sprintf("feat: deploy %s to %s", specID, env), nil
+		})
+		if err != nil {
+			fmt.Printf("Warning: could not transition to deploying: %v\n", err)
+		} else {
+			fmt.Printf("✓ %s transitioned to deploying\n", specID)
+		}
 	}
 
 	return nil

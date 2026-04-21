@@ -439,7 +439,7 @@ func (r *ResolvedConfig) HasIntegration(category string) bool {
 
 // AIDraftsEnabled returns whether AI drafting is enabled for the user.
 func (r *ResolvedConfig) AIDraftsEnabled() bool {
-	if r.User != nil && !r.User.Preferences.AIDrafts {
+	if r.User != nil && !r.User.Preferences.AIDraftsEnabled() {
 		return false
 	}
 	return r.HasIntegration("ai")

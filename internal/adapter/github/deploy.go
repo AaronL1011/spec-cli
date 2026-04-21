@@ -60,25 +60,13 @@ func (d *DeployClient) Trigger(ctx context.Context, repos []string, env string) 
 		}
 	}
 
-	// GitHub doesn't return a run ID from dispatch. We poll for the most recent run.
-	time.Sleep(2 * time.Second) // Brief wait for run to appear.
-	run, err := d.findLatestRun(ctx, repos[0])
-	if err != nil {
-		// Return a stub run — the dispatch succeeded but we can't track it yet.
-		return &adapter.DeployRun{
-			ID:     "pending",
-			Repo:   repos[0],
-			Env:    env,
-			Status: "pending",
-		}, nil
-	}
-
+	// GitHub doesn't return a run ID from dispatch. Return a pending stub
+	// immediately — callers use Status() to poll for the actual run.
 	return &adapter.DeployRun{
-		ID:     fmt.Sprintf("%d", run.GetID()),
+		ID:     "pending",
 		Repo:   repos[0],
 		Env:    env,
-		Status: mapRunStatus(run.GetStatus(), run.GetConclusion()),
-		URL:    run.GetHTMLURL(),
+		Status: "pending",
 	}, nil
 }
 

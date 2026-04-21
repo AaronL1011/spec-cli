@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"github.com/nexl/spec-cli/internal/dashboard"
+	"github.com/nexl/spec-cli/internal/store"
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +29,13 @@ personal dashboard.`,
 			return nil
 		}
 
+		if rc.Team == nil {
+			cmd.Println("Welcome to spec — developer control plane.")
+			cmd.Printf("Role: %s\n", role)
+			cmd.Println("No team config found. Run 'spec config init' to set up your team.")
+			return nil
+		}
+
 		db, _ := openDB()
 		if db != nil {
 			defer db.Close()
@@ -51,4 +59,24 @@ func Execute() error {
 
 func init() {
 	rootCmd.PersistentFlags().String("role", "", "temporarily override owner_role for this invocation")
+
+	// Passive awareness: print pending count before every subcommand.
+	// Does not apply to the root command itself (the dashboard) or completion.
+	originalPreRun := rootCmd.PersistentPreRunE
+	rootCmd.PersistentPreRunE = func(cmd *cobra.Command, args []string) error {
+		if originalPreRun != nil {
+			if err := originalPreRun(cmd, args); err != nil {
+				return err
+			}
+		}
+		// Only print for subcommands, not the root dashboard itself
+		if cmd != rootCmd {
+			db, err := store.Open(store.DefaultDBPath())
+			if err == nil {
+				dashboard.PrintAwarenessLine(db)
+				db.Close()
+			}
+		}
+		return nil
+	}
 }

@@ -46,7 +46,8 @@ func runConfigInit(cmd *cobra.Command, args []string) error {
 func runUserConfigInit() error {
 	reader := bufio.NewReader(os.Stdin)
 	cfg := &config.UserConfig{}
-	cfg.Preferences.AIDrafts = true
+	aiDrafts := true
+	cfg.Preferences.AIDrafts = &aiDrafts
 
 	fmt.Println("Setting up your personal spec identity (~/.spec/config.yaml)")
 	fmt.Println()

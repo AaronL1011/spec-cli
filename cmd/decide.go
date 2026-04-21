@@ -87,7 +87,7 @@ func addQuestion(rc *config.ResolvedConfig, specID, question string) error {
 
 	var decisionNum int
 	err := gitpkg.WithSpecsRepo(context.Background(), &rc.Team.SpecsRepo, func(repoPath string) (string, error) {
-		path, err := resolveSpecPath(rc, specID)
+		path, err := specPathIn(repoPath, rc, specID)
 		if err != nil {
 			return "", err
 		}
@@ -116,7 +116,7 @@ func resolveDecision(rc *config.ResolvedConfig, specID string, number int, decis
 	}
 
 	return gitpkg.WithSpecsRepo(context.Background(), &rc.Team.SpecsRepo, func(repoPath string) (string, error) {
-		path, err := resolveSpecPath(rc, specID)
+		path, err := specPathIn(repoPath, rc, specID)
 		if err != nil {
 			return "", err
 		}
