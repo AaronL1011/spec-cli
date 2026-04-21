@@ -1,0 +1,54 @@
+package cmd
+
+import (
+	"github.com/nexl/spec-cli/internal/dashboard"
+	"github.com/spf13/cobra"
+)
+
+var rootCmd = &cobra.Command{
+	Use:   "spec",
+	Short: "Developer control plane — your terminal is your office",
+	Long: `spec is a developer control plane that unifies spec management,
+pipeline orchestration, build context, and team coordination
+into a single CLI. Run 'spec' with no arguments to see your
+personal dashboard.`,
+	SilenceUsage:  true,
+	SilenceErrors: true,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		rc, err := resolveConfig()
+		if err != nil {
+			return err
+		}
+
+		role := rc.OwnerRole("")
+		if role == "" {
+			cmd.Println("Welcome to spec — developer control plane.")
+			cmd.Println("Run 'spec config init --user' to set up your identity.")
+			cmd.Println("Run 'spec --help' for available commands.")
+			return nil
+		}
+
+		db, _ := openDB()
+		if db != nil {
+			defer db.Close()
+		}
+
+		reg := buildRegistry(rc)
+		data, err := dashboard.Aggregate(ctx(), rc, db, reg, role)
+		if err != nil {
+			return err
+		}
+
+		dashboard.Render(data, rc.UserName(), role, rc.CycleLabel())
+		return nil
+	},
+}
+
+// Execute runs the root command.
+func Execute() error {
+	return rootCmd.Execute()
+}
+
+func init() {
+	rootCmd.PersistentFlags().String("role", "", "temporarily override owner_role for this invocation")
+}

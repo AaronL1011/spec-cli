@@ -1,0 +1,132 @@
+package cmd
+
+import (
+	"context"
+	"fmt"
+	"strings"
+
+	"github.com/nexl/spec-cli/internal/adapter"
+	gitpkg "github.com/nexl/spec-cli/internal/git"
+	"github.com/nexl/spec-cli/internal/markdown"
+	"github.com/nexl/spec-cli/internal/pipeline"
+	"github.com/spf13/cobra"
+)
+
+var advanceCmd = &cobra.Command{
+	Use:   "advance <id>",
+	Short: "Advance a spec to the next pipeline stage",
+	Args:  cobra.ExactArgs(1),
+	RunE:  runAdvance,
+}
+
+func init() {
+	advanceCmd.Flags().String("to", "", "skip to a specific stage (TL fast-track only)")
+	rootCmd.AddCommand(advanceCmd)
+}
+
+func runAdvance(cmd *cobra.Command, args []string) error {
+	specID := strings.ToUpper(args[0])
+	targetStage, _ := cmd.Flags().GetString("to")
+
+	rc, err := resolveConfig()
+	if err != nil {
+		return err
+	}
+	if err := requireTeamConfig(rc); err != nil {
+		return err
+	}
+
+	role, err := requireRole(rc)
+	if err != nil {
+		return err
+	}
+
+	pl := rc.Pipeline()
+	reg := buildRegistry(rc)
+
+	// Work within specs repo
+	return gitpkg.WithSpecsRepo(context.Background(), &rc.Team.SpecsRepo, func(repoPath string) (string, error) {
+		path, err := resolveSpecPath(rc, specID)
+		if err != nil {
+			return "", err
+		}
+
+		meta, err := readSpecMeta(path)
+		if err != nil {
+			return "", err
+		}
+
+		// Validate the advance
+		if err := pipeline.ValidateAdvance(pl, meta.Status, targetStage, role); err != nil {
+			return "", err
+		}
+
+		// Determine target stage
+		target := targetStage
+		if target == "" {
+			next, err := pipeline.NextStage(pl, meta.Status, true)
+			if err != nil {
+				return "", fmt.Errorf("cannot advance from %q: %w", meta.Status, err)
+			}
+			target = next
+		}
+
+		// Evaluate gates on the target stage
+		sections, err := markdown.ExtractSectionsFromFile(path)
+		if err != nil {
+			return "", err
+		}
+
+		hasPRStack := markdown.IsSectionNonEmpty(sections, "pr_stack_plan")
+		gateResults := pipeline.EvaluateGates(pl, target, sections, hasPRStack, false)
+		if !pipeline.AllGatesPassed(gateResults) {
+			fmt.Printf("Gate checks failed for %s → %s:\n", meta.Status, target)
+			for _, r := range pipeline.FailedGates(gateResults) {
+				fmt.Printf("  ✗ %s\n    %s\n", r.Gate, r.Reason)
+			}
+			return "", fmt.Errorf("gate conditions not met — resolve the issues above before advancing")
+		}
+
+		// Record skipped stages for fast-track
+		var skipped []string
+		if targetStage != "" {
+			skipped = pipeline.SkippedStages(pl, meta.Status, target)
+		}
+
+		previousStage := meta.Status
+
+		// Advance
+		_, err = pipeline.Advance(path, meta, target)
+		if err != nil {
+			return "", err
+		}
+
+		// Log skipped stages to decision log for fast-track
+		if len(skipped) > 0 {
+			msg := fmt.Sprintf("FAST-TRACK: %s → %s. Skipped: %s", previousStage, target, strings.Join(skipped, ", "))
+			markdown.AppendDecision(path, msg, rc.UserName())
+		}
+
+		// Notify
+		if rc.HasIntegration("comms") {
+			nextOwner := pipeline.StageOwner(pl, target)
+			_ = reg.Comms().Notify(ctx(), adapter.Notification{
+				SpecID:  specID,
+				Title:   meta.Title,
+				Message: fmt.Sprintf("[%s] %s → %s | Owner: %s", specID, previousStage, target, nextOwner),
+			})
+		}
+
+		// Sync status to PM
+		if rc.HasIntegration("pm") && meta.EpicKey != "" {
+			_ = reg.PM().UpdateStatus(ctx(), meta.EpicKey, target)
+		}
+
+		fmt.Printf("✓ %s advanced: %s → %s\n", specID, previousStage, target)
+		if len(skipped) > 0 {
+			fmt.Printf("  Skipped stages: %s\n", strings.Join(skipped, ", "))
+		}
+
+		return fmt.Sprintf("feat: advance %s to %s", specID, target), nil
+	})
+}
