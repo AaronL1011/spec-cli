@@ -9,7 +9,7 @@ build:
 	go build $(GOFLAGS) $(LDFLAGS) -o bin/$(BINARY) .
 
 install:
-	go install $(GOFLAGS) $(LDFLAGS) .
+	go build $(GOFLAGS) $(LDFLAGS) -o $$(go env GOPATH)/bin/spec .
 
 test:
 	go test ./... -race -count=1
