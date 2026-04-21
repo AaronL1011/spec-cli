@@ -144,7 +144,10 @@ func draftPR(rc *config.ResolvedConfig, aiService *ai.Service, specID string) er
 	}
 
 	// Get the current diff
-	workDir, _ := os.Getwd()
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not determine working directory: %w", err)
+	}
 	diff, err := gitpkg.Diff(context.Background(), workDir, "main")
 	if err != nil {
 		diff = "(could not generate diff)"
@@ -199,11 +202,11 @@ func draftPRStack(rc *config.ResolvedConfig, aiService *ai.Service, specID strin
 		archNotes = s.Content
 	}
 
-	meta, _ := markdown.ReadMeta(path)
-	repos := []string{}
-	if meta != nil {
-		repos = meta.Repos
+	meta, err := markdown.ReadMeta(path)
+	if err != nil {
+		return fmt.Errorf("reading spec metadata: %w", err)
 	}
+	repos := meta.Repos
 
 	prompt := ai.PRStackPrompt(solution, archNotes, repos)
 	draft, err := aiService.Draft(context.Background(), prompt)

@@ -105,7 +105,7 @@ func runStandup(cmd *cobra.Command, args []string) error {
 		if should {
 			reg := buildRegistry(rc)
 			if err := reg.Comms().PostStandup(ctx(), standupReport); err != nil {
-				fmt.Printf("Warning: could not post standup: %v\n", err)
+				warnf("could not post standup: %v", err)
 			} else {
 				fmt.Println("✓ Standup posted.")
 			}

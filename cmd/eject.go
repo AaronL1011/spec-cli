@@ -61,13 +61,15 @@ func runEject(cmd *cobra.Command, args []string) error {
 			return "", err
 		}
 
-		// Notify TL
+		// Notify TL — non-fatal, warn on failure
 		if rc.HasIntegration("comms") {
-			_ = reg.Comms().Notify(ctx(), adapter.Notification{
+			if err := reg.Comms().Notify(ctx(), adapter.Notification{
 				SpecID:  specID,
 				Title:   meta.Title,
 				Message: fmt.Sprintf("🚫 [%s] BLOCKED from %s | Reason: %s | By: %s", specID, result.PreviousStage, reason, rc.UserName()),
-			})
+			}); err != nil {
+				warnf("could not send notification: %v", err)
+			}
 		}
 
 		fmt.Printf("🚫 %s blocked (was: %s)\n", specID, result.PreviousStage)

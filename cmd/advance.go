@@ -107,19 +107,23 @@ func runAdvance(cmd *cobra.Command, args []string) error {
 			markdown.AppendDecision(path, msg, rc.UserName())
 		}
 
-		// Notify
+		// Notify — non-fatal, warn on failure
 		if rc.HasIntegration("comms") {
 			nextOwner := pipeline.StageOwner(pl, target)
-			_ = reg.Comms().Notify(ctx(), adapter.Notification{
+			if err := reg.Comms().Notify(ctx(), adapter.Notification{
 				SpecID:  specID,
 				Title:   meta.Title,
 				Message: fmt.Sprintf("[%s] %s → %s | Owner: %s", specID, previousStage, target, nextOwner),
-			})
+			}); err != nil {
+				warnf("could not send notification: %v", err)
+			}
 		}
 
-		// Sync status to PM
+		// Sync status to PM — non-fatal, warn on failure
 		if rc.HasIntegration("pm") && meta.EpicKey != "" {
-			_ = reg.PM().UpdateStatus(ctx(), meta.EpicKey, target)
+			if err := reg.PM().UpdateStatus(ctx(), meta.EpicKey, target); err != nil {
+				warnf("could not sync status to PM: %v", err)
+			}
 		}
 
 		fmt.Printf("✓ %s advanced: %s → %s\n", specID, previousStage, target)

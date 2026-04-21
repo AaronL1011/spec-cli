@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 	"time"
 
 	"github.com/nexl/spec-cli/internal/config"
@@ -24,21 +26,30 @@ func SpecsRepoDir(cfg *config.SpecsRepoConfig) string {
 }
 
 // SpecsRepoURL returns the clone URL for the specs repo.
+// If a token is configured, it is embedded in the URL for passwordless auth.
 func SpecsRepoURL(cfg *config.SpecsRepoConfig) string {
+	var host string
 	switch cfg.Provider {
-	case "github":
-		return fmt.Sprintf("https://github.com/%s/%s.git", cfg.Owner, cfg.Repo)
 	case "gitlab":
-		return fmt.Sprintf("https://gitlab.com/%s/%s.git", cfg.Owner, cfg.Repo)
+		host = "gitlab.com"
 	case "bitbucket":
-		return fmt.Sprintf("https://bitbucket.org/%s/%s.git", cfg.Owner, cfg.Repo)
+		host = "bitbucket.org"
 	default:
-		return fmt.Sprintf("https://github.com/%s/%s.git", cfg.Owner, cfg.Repo)
+		host = "github.com"
 	}
+
+	if cfg.Token != "" {
+		return fmt.Sprintf("https://x-access-token:%s@%s/%s/%s.git", cfg.Token, host, cfg.Owner, cfg.Repo)
+	}
+	return fmt.Sprintf("https://%s/%s/%s.git", host, cfg.Owner, cfg.Repo)
 }
 
 // EnsureSpecsRepo clones the specs repo if not present, otherwise fetches latest.
 func EnsureSpecsRepo(ctx context.Context, cfg *config.SpecsRepoConfig) (string, error) {
+	if err := validateToken(cfg); err != nil {
+		return "", err
+	}
+
 	dir := SpecsRepoDir(cfg)
 
 	if _, err := os.Stat(filepath.Join(dir, ".git")); os.IsNotExist(err) {
@@ -48,18 +59,23 @@ func EnsureSpecsRepo(ctx context.Context, cfg *config.SpecsRepoConfig) (string, 
 		}
 		url := SpecsRepoURL(cfg)
 		if err := Clone(ctx, url, dir); err != nil {
-			return "", fmt.Errorf("cloning specs repo: %w", err)
+			return "", fmt.Errorf("cloning specs repo %s/%s: %w", cfg.Owner, cfg.Repo, redactToken(err))
 		}
 		return dir, nil
 	}
 
+	// Ensure the remote URL has the current token
+	if err := ensureRemoteURL(ctx, dir, cfg); err != nil {
+		return dir, fmt.Errorf("updating remote URL: %w", err)
+	}
+
 	// Fetch and reset to latest
 	if err := Fetch(ctx, dir); err != nil {
-		return dir, fmt.Errorf("fetching specs repo: %w", err)
+		return dir, fmt.Errorf("fetching specs repo: %w", redactToken(err))
 	}
 	ref := fmt.Sprintf("origin/%s", cfg.Branch)
 	if err := ResetHard(ctx, dir, ref); err != nil {
-		return dir, fmt.Errorf("resetting specs repo: %w", err)
+		return dir, fmt.Errorf("resetting specs repo: %w", redactToken(err))
 	}
 
 	return dir, nil
@@ -70,14 +86,19 @@ func EnsureSpecsRepo(ctx context.Context, cfg *config.SpecsRepoConfig) (string, 
 func WithSpecsRepo(ctx context.Context, cfg *config.SpecsRepoConfig, mutate func(repoPath string) (commitMsg string, err error)) error {
 	dir := SpecsRepoDir(cfg)
 
+	// Ensure the remote URL has the current token
+	if err := ensureRemoteURL(ctx, dir, cfg); err != nil {
+		return fmt.Errorf("updating remote URL: %w", err)
+	}
+
 	for attempt := 0; attempt <= maxPushRetries; attempt++ {
 		// Fetch latest
 		if err := Fetch(ctx, dir); err != nil {
-			return fmt.Errorf("fetching specs repo: %w", err)
+			return fmt.Errorf("fetching specs repo: %w", redactToken(err))
 		}
 		ref := fmt.Sprintf("origin/%s", cfg.Branch)
 		if err := ResetHard(ctx, dir, ref); err != nil {
-			return fmt.Errorf("resetting specs repo: %w", err)
+			return fmt.Errorf("resetting specs repo: %w", redactToken(err))
 		}
 
 		// Apply mutation
@@ -107,7 +128,7 @@ func WithSpecsRepo(ctx context.Context, cfg *config.SpecsRepoConfig, mutate func
 				time.Sleep(time.Duration(attempt+1) * 500 * time.Millisecond)
 				continue
 			}
-			return fmt.Errorf("push failed after %d retries — another user may have modified the specs repo: %w", maxPushRetries, err)
+			return fmt.Errorf("push failed after %d retries — another user may have modified the specs repo: %w", maxPushRetries, redactToken(err))
 		}
 
 		return nil
@@ -171,4 +192,47 @@ func SpecFilePath(cfg *config.SpecsRepoConfig, filename string) string {
 // TriageFilePath returns the absolute path to a triage file.
 func TriageFilePath(cfg *config.SpecsRepoConfig, filename string) string {
 	return filepath.Join(SpecsRepoDir(cfg), "triage", filename)
+}
+
+// validateToken checks that the specs repo token is usable.
+// Returns an actionable error if the token is missing or looks like an
+// unresolved environment variable reference.
+func validateToken(cfg *config.SpecsRepoConfig) error {
+	token := cfg.Token
+	if token == "" {
+		return fmt.Errorf("specs repo token not configured — set GITHUB_TOKEN in your environment or add 'token' to specs_repo in spec.config.yaml")
+	}
+	if strings.HasPrefix(token, "${") {
+		return fmt.Errorf("specs repo token %s is not set in your environment — export it before running spec", token)
+	}
+	return nil
+}
+
+// redactToken removes tokens from error messages to avoid leaking credentials.
+func redactToken(err error) error {
+	if err == nil {
+		return nil
+	}
+	msg := err.Error()
+	// Redact x-access-token:TOKEN@ patterns
+	redacted := tokenRedactPattern.ReplaceAllString(msg, "x-access-token:***@")
+	return fmt.Errorf("%s", redacted)
+}
+
+var tokenRedactPattern = regexp.MustCompile(`x-access-token:[^@]+@`)
+
+// ensureRemoteURL updates the origin remote URL if the token has changed
+// since the repo was cloned. This ensures fetch/push use the current token.
+func ensureRemoteURL(ctx context.Context, dir string, cfg *config.SpecsRepoConfig) error {
+	expected := SpecsRepoURL(cfg)
+	current, err := Run(ctx, dir, "remote", "get-url", "origin")
+	if err != nil {
+		return fmt.Errorf("getting current remote URL: %w", err)
+	}
+	if current != expected {
+		if _, err := Run(ctx, dir, "remote", "set-url", "origin", expected); err != nil {
+			return fmt.Errorf("setting remote URL: %w", err)
+		}
+	}
+	return nil
 }

@@ -64,18 +64,21 @@ func runReview(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Post to comms
+	// Post to comms — non-fatal, warn on failure
 	if rc.HasIntegration("comms") {
 		msg := fmt.Sprintf("[%s] Review requested — %s\n", specID, meta.Title)
 		for _, pr := range prs {
 			msg += fmt.Sprintf("  • PR #%d: %s (%s)\n", pr.Number, pr.Title, pr.Repo)
 		}
-		_ = reg.Comms().Notify(ctx(), adapter.Notification{
+		if err := reg.Comms().Notify(ctx(), adapter.Notification{
 			SpecID:  specID,
 			Title:   meta.Title,
 			Message: msg,
-		})
-		fmt.Println("\n✓ Review request posted to comms.")
+		}); err != nil {
+			warnf("could not send notification: %v", err)
+		} else {
+			fmt.Println("\n✓ Review request posted to comms.")
+		}
 	}
 
 	return nil

@@ -59,6 +59,9 @@ func runBuild(cmd *cobra.Command, args []string) error {
 	reg := buildRegistry(rc)
 	engine := build.NewEngine(db, reg.Agent())
 
-	workDir, _ := os.Getwd()
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not determine working directory: %w", err)
+	}
 	return engine.StartOrResume(ctx(), specID, specPath, workDir)
 }

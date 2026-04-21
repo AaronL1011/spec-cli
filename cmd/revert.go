@@ -72,15 +72,17 @@ func runRevert(cmd *cobra.Command, args []string) error {
 			return "", err
 		}
 
-		// Notify both owners
+		// Notify both owners — non-fatal, warn on failure
 		if rc.HasIntegration("comms") {
 			currentOwner := pipeline.StageOwner(pl, previousStage)
 			targetOwner := pipeline.StageOwner(pl, targetStage)
-			_ = reg.Comms().Notify(ctx(), adapter.Notification{
+			if err := reg.Comms().Notify(ctx(), adapter.Notification{
 				SpecID:  specID,
 				Title:   meta.Title,
 				Message: fmt.Sprintf("[%s] Reverted: %s → %s | Reason: %s | From: %s, To: %s", specID, previousStage, targetStage, reason, currentOwner, targetOwner),
-			})
+			}); err != nil {
+				warnf("could not send notification: %v", err)
+			}
 		}
 
 		fmt.Printf("✓ %s reverted: %s → %s\n", specID, previousStage, targetStage)

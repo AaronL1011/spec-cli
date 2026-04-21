@@ -86,7 +86,7 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			return fmt.Sprintf("feat: deploy %s to %s", specID, env), nil
 		})
 		if err != nil {
-			fmt.Printf("Warning: could not transition to deploying: %v\n", err)
+			warnf("could not transition to deploying: %v", err)
 		} else {
 			fmt.Printf("✓ %s transitioned to deploying\n", specID)
 		}

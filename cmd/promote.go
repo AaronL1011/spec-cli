@@ -83,7 +83,7 @@ func runPromote(cmd *cobra.Command, args []string) error {
 		triageFile := filepath.Join(repoPath, "triage", triageID+".md")
 		if err := os.Remove(triageFile); err != nil {
 			// Non-fatal — the triage file might already be gone
-			fmt.Printf("Warning: could not remove triage file: %v\n", err)
+			warnf("could not remove triage file: %v", err)
 		}
 
 		newSpecID = specID
@@ -100,19 +100,21 @@ func runPromote(cmd *cobra.Command, args []string) error {
 			Title: title,
 		})
 		if pmErr != nil {
-			fmt.Printf("Warning: could not create PM epic: %v\n", pmErr)
+			warnf("could not create PM epic: %v", pmErr)
 		} else if epicKey != "" {
 			fmt.Printf("Created PM epic: %s\n", epicKey)
 		}
 	}
 
-	// Notify
+	// Notify — non-fatal, warn on failure
 	if rc.HasIntegration("comms") {
-		_ = reg.Comms().Notify(ctx(), adapter.Notification{
+		if err := reg.Comms().Notify(ctx(), adapter.Notification{
 			SpecID:  newSpecID,
 			Title:   title,
 			Message: fmt.Sprintf("Promoted %s → %s — %s (status: draft)", triageID, newSpecID, title),
-		})
+		}); err != nil {
+			warnf("could not send notification: %v", err)
+		}
 	}
 
 	fmt.Printf("✓ Promoted %s → %s — %s\n", triageID, newSpecID, title)

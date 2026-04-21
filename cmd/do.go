@@ -40,7 +40,10 @@ func runDo(cmd *cobra.Command, args []string) error {
 		specID = strings.ToUpper(args[0])
 	} else {
 		// Try to detect from current branch
-		workDir, _ := os.Getwd()
+		workDir, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("could not determine working directory: %w", err)
+		}
 		specID = gitpkg.DetectSpecFromBranch(ctx(), workDir)
 
 		// Try most recent session
@@ -79,6 +82,9 @@ func runDo(cmd *cobra.Command, args []string) error {
 	reg := buildRegistry(rc)
 	engine := build.NewEngine(db, reg.Agent())
 
-	workDir, _ := os.Getwd()
+	workDir, err := os.Getwd()
+	if err != nil {
+		return fmt.Errorf("could not determine working directory: %w", err)
+	}
 	return engine.StartOrResume(ctx(), specID, specPath, workDir)
 }

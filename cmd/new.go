@@ -84,19 +84,21 @@ func runNew(cmd *cobra.Command, args []string) error {
 			Title: title,
 		})
 		if pmErr != nil {
-			fmt.Printf("Warning: could not create PM epic: %v\n", pmErr)
+			warnf("could not create PM epic: %v", pmErr)
 		} else if epicKey != "" {
 			fmt.Printf("Created PM epic: %s\n", epicKey)
 		}
 	}
 
-	// Notify
+	// Notify — non-fatal, warn on failure
 	if rc.HasIntegration("comms") {
-		_ = reg.Comms().Notify(ctx(), adapter.Notification{
+		if err := reg.Comms().Notify(ctx(), adapter.Notification{
 			SpecID:  specID,
 			Title:   title,
 			Message: fmt.Sprintf("New spec created: %s — %s (status: draft)", specID, title),
-		})
+		}); err != nil {
+			warnf("could not send notification: %v", err)
+		}
 	}
 
 	fmt.Printf("✓ Created %s — %s\n", specID, title)

@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 	"time"
 
 	"github.com/nexl/spec-cli/internal/dashboard"
@@ -32,7 +33,10 @@ func runWatch(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	db, _ := openDB()
+	db, err := openDB()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "warning: could not open database: %v\n", err)
+	}
 	if db != nil {
 		defer db.Close()
 	}

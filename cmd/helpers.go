@@ -121,3 +121,9 @@ func specPathIn(repoPath string, rc *config.ResolvedConfig, specID string) (stri
 func ctx() context.Context {
 	return context.Background()
 }
+
+// warnf prints a warning to stderr. Use for non-fatal adapter errors
+// that should not block the command but should be visible to the user.
+func warnf(format string, args ...interface{}) {
+	fmt.Fprintf(os.Stderr, "warning: "+format+"\n", args...)
+}

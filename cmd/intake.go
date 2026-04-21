@@ -73,13 +73,15 @@ func runIntake(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
-	// Notify
+	// Notify — non-fatal, warn on failure
 	if rc.HasIntegration("comms") {
-		_ = reg.Comms().Notify(ctx(), adapter.Notification{
+		if err := reg.Comms().Notify(ctx(), adapter.Notification{
 			SpecID:  triageID,
 			Title:   title,
 			Message: fmt.Sprintf("New triage item: %s — %s [%s]", triageID, title, priority),
-		})
+		}); err != nil {
+			warnf("could not send notification: %v", err)
+		}
 	}
 
 	fmt.Printf("✓ Created %s — %s\n", triageID, title)
