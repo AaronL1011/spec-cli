@@ -37,7 +37,7 @@ type DashboardData struct {
 
 // Render outputs the dashboard to the terminal.
 func Render(data *DashboardData, userName, role, cycle string) {
-	fmt.Printf("Good morning, %s.", userName)
+	fmt.Print(greeting(time.Now(), userName))
 	parts := []string{}
 	if role != "" {
 		parts = append(parts, role)
@@ -257,4 +257,18 @@ func timeAgo(t time.Time) string {
 		return fmt.Sprintf("%dh ago", int(d.Hours()))
 	}
 	return fmt.Sprintf("%dd ago", int(d.Hours()/24))
+}
+
+func greeting(t time.Time, name string) string {
+	hour := t.Hour()
+	switch {
+	case hour >= 5 && hour < 12:
+		return fmt.Sprintf("Good morning, %s.", name)
+	case hour >= 12 && hour < 17:
+		return fmt.Sprintf("Afternoon, %s.", name)
+	case hour >= 17 && hour < 21:
+		return fmt.Sprintf("Good evening, %s.", name)
+	default:
+		return fmt.Sprintf("Burning the midnight oil are we, %s?", name)
+	}
 }
