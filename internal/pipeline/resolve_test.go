@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/nexl/spec-cli/internal/config"
+	"github.com/nexl/spec-cli/internal/pipeline/expr"
 )
 
 func TestResolveWithPreset(t *testing.T) {
@@ -315,5 +316,195 @@ func TestMergeStage(t *testing.T) {
 	// Warnings added from override
 	if len(merged.Warnings) != 1 {
 		t.Errorf("len(Warnings) = %d, want 1", len(merged.Warnings))
+	}
+}
+
+func TestEvaluateSkipWhen(t *testing.T) {
+	resolved := &ResolvedPipeline{
+		Stages: []config.StageConfig{
+			{Name: "triage", Owner: "pm"},
+			{Name: "design", Owner: "designer", SkipWhen: "'no-design' in spec.labels"},
+			{Name: "build", Owner: "engineer"},
+			{Name: "qa", Owner: "qa", SkipWhen: "'skip-qa' in spec.labels"},
+			{Name: "done", Owner: "tl"},
+		},
+		StageIndex: map[string]int{"triage": 0, "design": 1, "build": 2, "qa": 3, "done": 4},
+	}
+
+	tests := []struct {
+		name          string
+		labels        []string
+		wantSkipped   []string
+		wantEffective []string
+	}{
+		{
+			name:          "no labels - nothing skipped",
+			labels:        []string{},
+			wantSkipped:   nil,
+			wantEffective: []string{"triage", "design", "build", "qa", "done"},
+		},
+		{
+			name:          "no-design label - design skipped",
+			labels:        []string{"no-design"},
+			wantSkipped:   []string{"design"},
+			wantEffective: []string{"triage", "build", "qa", "done"},
+		},
+		{
+			name:          "skip-qa label - qa skipped",
+			labels:        []string{"skip-qa"},
+			wantSkipped:   []string{"qa"},
+			wantEffective: []string{"triage", "design", "build", "done"},
+		},
+		{
+			name:          "both labels - both skipped",
+			labels:        []string{"no-design", "skip-qa"},
+			wantSkipped:   []string{"design", "qa"},
+			wantEffective: []string{"triage", "build", "done"},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := expr.NewContextBuilder().
+				WithSpec("SPEC-001", "Test", "triage", tt.labels, 0, 0, 0).
+				Build()
+
+			results := EvaluateSkipWhen(resolved, ctx)
+
+			// Check skipped stages
+			var skipped []string
+			for _, r := range results {
+				if r.Skipped {
+					skipped = append(skipped, r.StageName)
+				}
+			}
+
+			if len(skipped) != len(tt.wantSkipped) {
+				t.Errorf("skipped = %v, want %v", skipped, tt.wantSkipped)
+			}
+
+			// Check effective stages
+			effective := EffectiveStages(resolved, ctx)
+			var effectiveNames []string
+			for _, s := range effective {
+				effectiveNames = append(effectiveNames, s.Name)
+			}
+
+			if len(effectiveNames) != len(tt.wantEffective) {
+				t.Errorf("effective = %v, want %v", effectiveNames, tt.wantEffective)
+			}
+		})
+	}
+}
+
+func TestNextEffectiveStage(t *testing.T) {
+	resolved := &ResolvedPipeline{
+		Stages: []config.StageConfig{
+			{Name: "triage", Owner: "pm"},
+			{Name: "design", Owner: "designer", SkipWhen: "'no-design' in spec.labels"},
+			{Name: "build", Owner: "engineer"},
+			{Name: "done", Owner: "tl"},
+		},
+		StageIndex: map[string]int{"triage": 0, "design": 1, "build": 2, "done": 3},
+	}
+
+	tests := []struct {
+		name     string
+		current  string
+		labels   []string
+		wantNext string
+		wantOk   bool
+	}{
+		{
+			name:     "normal flow",
+			current:  "triage",
+			labels:   []string{},
+			wantNext: "design",
+			wantOk:   true,
+		},
+		{
+			name:     "skip design - jump to build",
+			current:  "triage",
+			labels:   []string{"no-design"},
+			wantNext: "build",
+			wantOk:   true,
+		},
+		{
+			name:     "at end",
+			current:  "done",
+			labels:   []string{},
+			wantNext: "",
+			wantOk:   false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := expr.NewContextBuilder().
+				WithSpec("SPEC-001", "Test", tt.current, tt.labels, 0, 0, 0).
+				Build()
+
+			next, ok := NextEffectiveStage(resolved, tt.current, ctx)
+			if next != tt.wantNext || ok != tt.wantOk {
+				t.Errorf("NextEffectiveStage(%q) = (%q, %v), want (%q, %v)",
+					tt.current, next, ok, tt.wantNext, tt.wantOk)
+			}
+		})
+	}
+}
+
+func TestShouldSkipStage(t *testing.T) {
+	resolved := &ResolvedPipeline{
+		Stages: []config.StageConfig{
+			{Name: "design", Owner: "designer", SkipWhen: "'urgent' in spec.labels"},
+			{Name: "qa", Owner: "qa", SkipWhen: "spec.word_count < 100"},
+		},
+		StageIndex: map[string]int{"design": 0, "qa": 1},
+	}
+
+	tests := []struct {
+		name       string
+		stageName  string
+		labels     []string
+		wordCount  int
+		wantSkip   bool
+	}{
+		{
+			name:      "design not skipped",
+			stageName: "design",
+			labels:    []string{"feature"},
+			wantSkip:  false,
+		},
+		{
+			name:      "design skipped for urgent",
+			stageName: "design",
+			labels:    []string{"urgent"},
+			wantSkip:  true,
+		},
+		{
+			name:      "qa not skipped with enough words",
+			stageName: "qa",
+			wordCount: 200,
+			wantSkip:  false,
+		},
+		{
+			name:      "qa skipped for short specs",
+			stageName: "qa",
+			wordCount: 50,
+			wantSkip:  true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ctx := expr.NewContextBuilder().
+				WithSpec("SPEC-001", "Test", "triage", tt.labels, tt.wordCount, 0, 0).
+				Build()
+
+			skipped, _ := ShouldSkipStage(resolved, tt.stageName, ctx)
+			if skipped != tt.wantSkip {
+				t.Errorf("ShouldSkipStage(%q) = %v, want %v", tt.stageName, skipped, tt.wantSkip)
+			}
+		})
 	}
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/nexl/spec-cli/internal/config"
+	"github.com/nexl/spec-cli/internal/pipeline/expr"
 )
 
 // ResolvedPipeline is a fully resolved pipeline configuration with all
@@ -420,4 +421,121 @@ func PresetInfo(name string) (description string, features []string, stageNames 
 		names[i] = s.Name
 	}
 	return preset.Description, preset.Features, names, nil
+}
+
+// SkipWhenResult holds the result of evaluating skip_when for a stage.
+type SkipWhenResult struct {
+	StageName string
+	Skipped   bool
+	Reason    string // The skip_when expression that matched
+}
+
+// EvaluateSkipWhen evaluates skip_when expressions for all stages given a context.
+// Returns the stages that should be skipped for this spec.
+func EvaluateSkipWhen(resolved *ResolvedPipeline, ctx expr.Context) []SkipWhenResult {
+	var results []SkipWhenResult
+
+	for _, stage := range resolved.Stages {
+		if stage.SkipWhen == "" {
+			continue
+		}
+
+		// Evaluate the skip_when expression
+		shouldSkip, err := expr.Evaluate(stage.SkipWhen, ctx)
+		if err != nil {
+			// On error, don't skip (fail open)
+			results = append(results, SkipWhenResult{
+				StageName: stage.Name,
+				Skipped:   false,
+				Reason:    fmt.Sprintf("error evaluating skip_when: %v", err),
+			})
+			continue
+		}
+
+		if shouldSkip {
+			results = append(results, SkipWhenResult{
+				StageName: stage.Name,
+				Skipped:   true,
+				Reason:    stage.SkipWhen,
+			})
+		}
+	}
+
+	return results
+}
+
+// EffectiveStages returns the stages that apply to a spec after evaluating skip_when.
+// This is used for determining the actual pipeline path for a spec.
+func EffectiveStages(resolved *ResolvedPipeline, ctx expr.Context) []config.StageConfig {
+	skipResults := EvaluateSkipWhen(resolved, ctx)
+
+	// Build skip set
+	skipSet := make(map[string]bool)
+	for _, r := range skipResults {
+		if r.Skipped {
+			skipSet[r.StageName] = true
+		}
+	}
+
+	// Filter stages
+	var effective []config.StageConfig
+	for _, stage := range resolved.Stages {
+		if !skipSet[stage.Name] {
+			effective = append(effective, stage)
+		}
+	}
+
+	return effective
+}
+
+// NextEffectiveStage returns the next stage that isn't skipped.
+func NextEffectiveStage(resolved *ResolvedPipeline, current string, ctx expr.Context) (string, bool) {
+	effective := EffectiveStages(resolved, ctx)
+
+	// Build index of effective stages
+	effectiveIndex := make(map[string]int)
+	for i, s := range effective {
+		effectiveIndex[s.Name] = i
+	}
+
+	// Find current in effective stages
+	currentIdx, ok := effectiveIndex[current]
+	if !ok {
+		// Current stage is skipped - find next from original index
+		originalIdx, origOk := resolved.StageIndex[current]
+		if !origOk {
+			return "", false
+		}
+		// Find first effective stage after current
+		for i := originalIdx + 1; i < len(resolved.Stages); i++ {
+			if _, isEffective := effectiveIndex[resolved.Stages[i].Name]; isEffective {
+				return resolved.Stages[i].Name, true
+			}
+		}
+		return "", false
+	}
+
+	// Return next in effective stages
+	if currentIdx >= len(effective)-1 {
+		return "", false
+	}
+	return effective[currentIdx+1].Name, true
+}
+
+// ShouldSkipStage checks if a specific stage should be skipped for a spec.
+func ShouldSkipStage(resolved *ResolvedPipeline, stageName string, ctx expr.Context) (bool, string) {
+	stage := resolved.StageByName(stageName)
+	if stage == nil || stage.SkipWhen == "" {
+		return false, ""
+	}
+
+	shouldSkip, err := expr.Evaluate(stage.SkipWhen, ctx)
+	if err != nil {
+		return false, fmt.Sprintf("error: %v", err)
+	}
+
+	if shouldSkip {
+		return true, stage.SkipWhen
+	}
+	return false, ""
 }

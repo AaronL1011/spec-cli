@@ -44,6 +44,7 @@ type SpecContext struct {
 	Labels      []string      `expr:"labels"`
 	TimeInStage time.Duration `expr:"time_in_stage"`
 	RevertCount int           `expr:"revert_count"`
+	WordCount   int           `expr:"word_count"`
 }
 
 // SectionContext contains metadata about a spec section.

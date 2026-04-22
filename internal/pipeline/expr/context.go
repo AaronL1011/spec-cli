@@ -18,12 +18,13 @@ func NewContextBuilder() *ContextBuilder {
 }
 
 // WithSpec sets spec metadata.
-func (b *ContextBuilder) WithSpec(id, title, status string, labels []string, timeInStage time.Duration, revertCount int) *ContextBuilder {
+func (b *ContextBuilder) WithSpec(id, title, status string, labels []string, wordCount int, timeInStage time.Duration, revertCount int) *ContextBuilder {
 	b.ctx.Spec = SpecContext{
 		ID:          id,
 		Title:       title,
 		Status:      status,
 		Labels:      labels,
+		WordCount:   wordCount,
 		TimeInStage: timeInStage,
 		RevertCount: revertCount,
 	}

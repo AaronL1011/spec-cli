@@ -118,7 +118,7 @@ func TestEvaluateLabelsExpression(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			ctx := expr.NewContextBuilder().
-				WithSpec("SPEC-001", "Test", "build", tt.labels, 0, 0).
+				WithSpec("SPEC-001", "Test", "build", tt.labels, 0, 0, 0).
 				Build()
 
 			results := EvaluateGatesWithContext(pipeline, "fast_track", ctx)
