@@ -30,7 +30,7 @@ func runStandup(cmd *cobra.Command, args []string) error {
 	if err != nil {
 		return err
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	// Get activity from last 24h
 	since := time.Now().Add(-24 * time.Hour)
@@ -98,7 +98,7 @@ func runStandup(cmd *cobra.Command, args []string) error {
 		if !autoPost {
 			fmt.Print("\nPost to standup channel? [y/N] ")
 			var answer string
-			fmt.Scanln(&answer)
+			_, _ = fmt.Scanln(&answer)
 			should = strings.ToLower(strings.TrimSpace(answer)) == "y"
 		}
 

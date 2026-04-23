@@ -86,7 +86,7 @@ func runMCPServer(cmd *cobra.Command, args []string) error {
 	// Try to detect active session
 	db, err := openDB()
 	if err == nil {
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 		recent, _ := db.SessionMostRecent()
 		if recent != "" {
 			fmt.Fprintf(os.Stderr, "spec mcp: active session detected for %s, use --spec %s for build mode\n", recent, recent)
@@ -106,7 +106,7 @@ func runBuildMCPServer(cmd *cobra.Command, specID string, rc *config.ResolvedCon
 	if err != nil {
 		return fmt.Errorf("database error: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	session, err := build.LoadSession(db, specID)
 	if err != nil {

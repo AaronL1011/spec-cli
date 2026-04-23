@@ -66,7 +66,7 @@ func (s *MCPServer) ListResources() []MCPResource {
 	if len(s.ctx.PriorDiffs) > 0 {
 		var diffs strings.Builder
 		for i, diff := range s.ctx.PriorDiffs {
-			diffs.WriteString(fmt.Sprintf("## Step %d\n\n```diff\n%s\n```\n\n", i+1, diff))
+			fmt.Fprintf(&diffs, "## Step %d\n\n```diff\n%s\n```\n\n", i+1, diff)
 		}
 		resources = append(resources, MCPResource{
 			URI:     "spec://current/prior-diffs",
@@ -135,7 +135,7 @@ func (s *MCPServer) toolDecide(args json.RawMessage) (*MCPToolResult, error) {
 		return &MCPToolResult{Success: false, Message: err.Error()}, nil
 	}
 
-	LogActivity(s.session.SpecID, fmt.Sprintf("Decision #%03d: %s", num, params.Question))
+	_ = LogActivity(s.session.SpecID, fmt.Sprintf("Decision #%03d: %s", num, params.Question))
 
 	return &MCPToolResult{
 		Success: true,
@@ -157,7 +157,7 @@ func (s *MCPServer) toolDecideResolve(args json.RawMessage) (*MCPToolResult, err
 		return &MCPToolResult{Success: false, Message: err.Error()}, nil
 	}
 
-	LogActivity(s.session.SpecID, fmt.Sprintf("Decision #%03d resolved: %s", params.Number, params.Decision))
+	_ = LogActivity(s.session.SpecID, fmt.Sprintf("Decision #%03d resolved: %s", params.Number, params.Decision))
 
 	return &MCPToolResult{
 		Success: true,
@@ -175,7 +175,7 @@ func (s *MCPServer) toolStepComplete() (*MCPToolResult, error) {
 		return &MCPToolResult{Success: false, Message: "no current step"}, nil
 	}
 
-	LogActivity(s.session.SpecID, fmt.Sprintf("Step %d completed via MCP: %s", step.Number, step.Description))
+	_ = LogActivity(s.session.SpecID, fmt.Sprintf("Step %d completed via MCP: %s", step.Number, step.Description))
 
 	if err := AdvanceStep(s.db, s.session); err != nil {
 		return &MCPToolResult{Success: false, Message: err.Error()}, nil
@@ -194,16 +194,19 @@ func (s *MCPServer) toolStepComplete() (*MCPToolResult, error) {
 
 func (s *MCPServer) toolStatus() (*MCPToolResult, error) {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Spec: %s\n", s.session.SpecID))
-	sb.WriteString(fmt.Sprintf("Step: %d/%d\n", s.session.CurrentStep, len(s.session.Steps)))
+	fmt.Fprintf(&sb, "Spec: %s\n", s.session.SpecID)
+	fmt.Fprintf(&sb, "Step: %d/%d\n", s.session.CurrentStep, len(s.session.Steps))
 	for _, step := range s.session.Steps {
-		marker := "  "
-		if step.Status == "in-progress" {
+		var marker string
+		switch step.Status {
+		case "in-progress":
 			marker = "▶ "
-		} else if step.Status == "complete" {
+		case "complete":
 			marker = "✓ "
+		default:
+			marker = "  "
 		}
-		sb.WriteString(fmt.Sprintf("%s%d. [%s] %s (%s)\n", marker, step.Number, step.Repo, step.Description, step.Status))
+		fmt.Fprintf(&sb, "%s%d. [%s] %s (%s)\n", marker, step.Number, step.Repo, step.Description, step.Status)
 	}
 
 	return &MCPToolResult{Success: true, Message: sb.String()}, nil

@@ -39,7 +39,7 @@ func TestCreateEpic_Success(t *testing.T) {
 		}
 
 		w.WriteHeader(http.StatusCreated)
-		json.NewEncoder(w).Encode(createIssueResponse{
+		_ = json.NewEncoder(w).Encode(createIssueResponse{
 			ID:  "10042",
 			Key: "PLAT-123",
 		})
@@ -63,7 +63,7 @@ func TestCreateEpic_Success(t *testing.T) {
 func TestCreateEpic_APIError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
-		w.Write([]byte(`{"errorMessages":["permission denied"]}`))
+		_, _ = w.Write([]byte(`{"errorMessages":["permission denied"]}`))
 	}))
 	defer server.Close()
 
@@ -80,7 +80,7 @@ func TestUpdateStatus_FindsTransition(t *testing.T) {
 		calls++
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/rest/api/3/issue/PLAT-123/transitions":
-			json.NewEncoder(w).Encode(transitionsResponse{
+			_ = json.NewEncoder(w).Encode(transitionsResponse{
 				Transitions: []transition{
 					{ID: "11", Name: "Start Build", To: transitionTo{Name: "Build"}},
 					{ID: "21", Name: "Done", To: transitionTo{Name: "Done"}},
@@ -88,7 +88,7 @@ func TestUpdateStatus_FindsTransition(t *testing.T) {
 			})
 		case r.Method == http.MethodPost && r.URL.Path == "/rest/api/3/issue/PLAT-123/transitions":
 			var req transitionRequest
-			json.NewDecoder(r.Body).Decode(&req)
+			_ = json.NewDecoder(r.Body).Decode(&req)
 			if req.Transition.ID != "11" {
 				t.Errorf("expected transition ID '11', got %s", req.Transition.ID)
 			}
@@ -122,7 +122,7 @@ func TestFetchUpdates_Success(t *testing.T) {
 		if r.URL.Path != "/rest/api/3/issue/PLAT-123" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		w.Write([]byte(`{
+		_, _ = w.Write([]byte(`{
 			"key": "PLAT-123",
 			"fields": {
 				"status": {"name": "In Progress"},

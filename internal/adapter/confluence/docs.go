@@ -113,7 +113,7 @@ func (c *Client) findPage(ctx context.Context, specID string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("searching for page %s: %w — query: %s", specID, err, cql)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -121,7 +121,7 @@ func (c *Client) findPage(ctx context.Context, specID string) (string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Confluence API error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
+		return "", fmt.Errorf("confluence API error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
 	}
 
 	var result pagesResponse
@@ -145,7 +145,7 @@ func (c *Client) getPageBody(ctx context.Context, pageID string) (string, error)
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -153,7 +153,7 @@ func (c *Client) getPageBody(ctx context.Context, pageID string) (string, error)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("Confluence API error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
+		return "", fmt.Errorf("confluence API error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
 	}
 
 	var page pageResponse
@@ -185,7 +185,7 @@ func (c *Client) createPage(ctx context.Context, specID, storageBody string) err
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -193,7 +193,7 @@ func (c *Client) createPage(ctx context.Context, specID, storageBody string) err
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		return fmt.Errorf("Confluence create page error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
+		return fmt.Errorf("confluence create page error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
 	}
 
 	var page pageResponse
@@ -231,11 +231,11 @@ func (c *Client) updatePage(ctx context.Context, pageID, specID, storageBody str
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Confluence update page error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
+		return fmt.Errorf("confluence update page error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
 	}
 	return nil
 }
@@ -246,7 +246,7 @@ func (c *Client) getPageVersion(ctx context.Context, pageID string) (int, error)
 	if err != nil {
 		return 0, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -311,7 +311,7 @@ func markdownToStorage(md, specID string) string {
 				lang = strings.TrimSpace(lang)
 				out.WriteString(`<ac:structured-macro ac:name="code">`)
 				if lang != "" {
-					out.WriteString(fmt.Sprintf(`<ac:parameter ac:name="language">%s</ac:parameter>`, escapeXML(lang)))
+					fmt.Fprintf(&out, `<ac:parameter ac:name="language">%s</ac:parameter>`, escapeXML(lang))
 				}
 				out.WriteString("<ac:plain-text-body><![CDATA[")
 				inCodeBlock = true
@@ -331,8 +331,8 @@ func markdownToStorage(md, specID string) string {
 				inList = false
 			}
 			slug := slugify(text)
-			out.WriteString(fmt.Sprintf("<!-- spec-section: %s -->\n", slug))
-			out.WriteString(fmt.Sprintf("<h%d>%s</h%d>\n", level, formatInline(text), level))
+			fmt.Fprintf(&out, "<!-- spec-section: %s -->\n", slug)
+			fmt.Fprintf(&out, "<h%d>%s</h%d>\n", level, formatInline(text), level)
 			continue
 		}
 
@@ -349,7 +349,7 @@ func markdownToStorage(md, specID string) string {
 			text := strings.TrimSpace(line)
 			text = strings.TrimPrefix(text, "- ")
 			text = strings.TrimPrefix(text, "* ")
-			out.WriteString(fmt.Sprintf("<li>%s</li>\n", formatInline(text)))
+			fmt.Fprintf(&out, "<li>%s</li>\n", formatInline(text))
 			continue
 		}
 
@@ -364,7 +364,7 @@ func markdownToStorage(md, specID string) string {
 				listType = "ol"
 			}
 			text := orderedListText(line)
-			out.WriteString(fmt.Sprintf("<li>%s</li>\n", formatInline(text)))
+			fmt.Fprintf(&out, "<li>%s</li>\n", formatInline(text))
 			continue
 		}
 
@@ -403,7 +403,7 @@ func markdownToStorage(md, specID string) string {
 		}
 
 		// Paragraph
-		out.WriteString(fmt.Sprintf("<p>%s</p>\n", formatInline(trimmed)))
+		fmt.Fprintf(&out, "<p>%s</p>\n", formatInline(trimmed))
 	}
 
 	if inList {
@@ -643,7 +643,7 @@ func convertTable(lines []string) string {
 			tag = "th"
 		}
 		for _, cell := range cells {
-			out.WriteString(fmt.Sprintf("<%s>%s</%s>", tag, formatInline(cell), tag))
+			fmt.Fprintf(&out, "<%s>%s</%s>", tag, formatInline(cell), tag)
 		}
 		out.WriteString("</tr>\n")
 	}
