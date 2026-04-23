@@ -63,9 +63,9 @@ func init() {
 				return err
 			}
 		}
-		// Only print for subcommands, not the root dashboard itself.
+		// Only print for subcommands, not the root dashboard or completion.
 		// Awareness is best-effort — config resolution failure is not fatal.
-		if cmd != rootCmd {
+		if cmd != rootCmd && cmd.Name() != "completion" {
 			if rc, err := resolveConfig(); err == nil {
 				role := rc.OwnerRole("")
 				dashboard.PrintAwarenessLine(rc, role)
