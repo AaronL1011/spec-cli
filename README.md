@@ -177,6 +177,8 @@ spec advance SPEC-042 --dry-run  # Preview transition effects
 
 📖 **[Full pipeline documentation →](docs/pipelines.md)**
 
+📖 **[Engineer workflow guide →](docs/engineer-workflow.md)**
+
 **Transitions:**
 
 - **Forward** (`spec advance`) — validates gates, runs effects, notifies next owner
@@ -270,6 +272,7 @@ Every draft goes through **accept / edit / skip** — AI never writes directly t
 | `spec status <id>` | Pipeline position + section completion |
 | `spec list` | Specs awaiting your action |
 | `spec list --all` | Full pipeline grouped by stage |
+| `spec list --mine` | Specs you own |
 | `spec list --triage` | Open triage items |
 
 ### Collaboration
@@ -292,6 +295,28 @@ Every draft goes through **accept / edit / skip** — AI never writes directly t
 | `spec draft <id> --pr` | Draft a PR description |
 | `spec draft <id> --pr-stack` | Propose a PR stack plan |
 
+### Technical planning
+
+| Command | Description |
+|---|---|
+| `spec plan [id]` | View build plan |
+| `spec plan edit [id]` | Edit plan in `$EDITOR` |
+| `spec plan add [id] <desc>` | Add a step (`--repo`) |
+| `spec plan ready [id]` | Request plan review |
+| `spec review <id> --plan` | Review technical plan |
+| `spec review <id> --plan --approve` | Approve plan |
+
+### Build execution
+
+| Command | Description |
+|---|---|
+| `spec steps [id]` | View build steps and progress |
+| `spec steps next [id]` | Show next step details |
+| `spec steps start [id] [n]` | Start working on a step |
+| `spec steps complete [id] [n]` | Mark step complete (`--pr N`) |
+| `spec steps block [id] [n] <reason>` | Block a step |
+| `spec steps unblock [id] [n]` | Unblock a step |
+
 ### Build & deploy
 
 | Command | Description |
@@ -299,6 +324,7 @@ Every draft goes through **accept / edit / skip** — AI never writes directly t
 | `spec build <id>` | Start/resume build with agent context |
 | `spec review <id>` | Post structured review request |
 | `spec deploy <id> [--env production]` | Trigger deployment |
+| `spec fix <title>` | Fast-track bug fix (`--label`) |
 | `spec mcp-server [--spec <id>]` | Standalone MCP server |
 
 ### Knowledge
