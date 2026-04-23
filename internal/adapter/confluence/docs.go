@@ -311,7 +311,7 @@ func markdownToStorage(md, specID string) string {
 				lang = strings.TrimSpace(lang)
 				out.WriteString(`<ac:structured-macro ac:name="code">`)
 				if lang != "" {
-					out.WriteString(fmt.Sprintf(`<ac:parameter ac:name="language">%s</ac:parameter>`, escapeXML(lang)))
+					fmt.Fprintf(&out, `<ac:parameter ac:name="language">%s</ac:parameter>`, escapeXML(lang))
 				}
 				out.WriteString("<ac:plain-text-body><![CDATA[")
 				inCodeBlock = true
@@ -331,8 +331,8 @@ func markdownToStorage(md, specID string) string {
 				inList = false
 			}
 			slug := slugify(text)
-			out.WriteString(fmt.Sprintf("<!-- spec-section: %s -->\n", slug))
-			out.WriteString(fmt.Sprintf("<h%d>%s</h%d>\n", level, formatInline(text), level))
+			fmt.Fprintf(&out, "<!-- spec-section: %s -->\n", slug)
+			fmt.Fprintf(&out, "<h%d>%s</h%d>\n", level, formatInline(text), level)
 			continue
 		}
 
@@ -349,7 +349,7 @@ func markdownToStorage(md, specID string) string {
 			text := strings.TrimSpace(line)
 			text = strings.TrimPrefix(text, "- ")
 			text = strings.TrimPrefix(text, "* ")
-			out.WriteString(fmt.Sprintf("<li>%s</li>\n", formatInline(text)))
+			fmt.Fprintf(&out, "<li>%s</li>\n", formatInline(text))
 			continue
 		}
 
@@ -364,7 +364,7 @@ func markdownToStorage(md, specID string) string {
 				listType = "ol"
 			}
 			text := orderedListText(line)
-			out.WriteString(fmt.Sprintf("<li>%s</li>\n", formatInline(text)))
+			fmt.Fprintf(&out, "<li>%s</li>\n", formatInline(text))
 			continue
 		}
 
@@ -403,7 +403,7 @@ func markdownToStorage(md, specID string) string {
 		}
 
 		// Paragraph
-		out.WriteString(fmt.Sprintf("<p>%s</p>\n", formatInline(trimmed)))
+		fmt.Fprintf(&out, "<p>%s</p>\n", formatInline(trimmed))
 	}
 
 	if inList {
@@ -643,7 +643,7 @@ func convertTable(lines []string) string {
 			tag = "th"
 		}
 		for _, cell := range cells {
-			out.WriteString(fmt.Sprintf("<%s>%s</%s>", tag, formatInline(cell), tag))
+			fmt.Fprintf(&out, "<%s>%s</%s>", tag, formatInline(cell), tag)
 		}
 		out.WriteString("</tr>\n")
 	}
