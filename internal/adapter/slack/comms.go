@@ -8,7 +8,7 @@ import (
 	"time"
 
 	slackapi "github.com/slack-go/slack"
-	"github.com/nexl/spec-cli/internal/adapter"
+	"github.com/aaronl1011/spec-cli/internal/adapter"
 )
 
 // Client implements adapter.CommsAdapter using the Slack API.

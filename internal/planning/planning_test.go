@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nexl/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
 )
 
 func TestFromMeta(t *testing.T) {

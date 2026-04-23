@@ -5,7 +5,7 @@ import (
 	"log"
 	"os"
 
-	"github.com/nexl/spec-cli/cmd"
+	"github.com/aaronl1011/spec-cli/cmd"
 	"github.com/spf13/cobra/doc"
 )
 

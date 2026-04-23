@@ -6,7 +6,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/nexl/spec-cli/internal/adapter"
+	"github.com/aaronl1011/spec-cli/internal/adapter"
 )
 
 // Service wraps an AIAdapter with null-safe semantics.

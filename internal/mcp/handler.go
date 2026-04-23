@@ -7,9 +7,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nexl/spec-cli/internal/config"
-	"github.com/nexl/spec-cli/internal/markdown"
-	"github.com/nexl/spec-cli/internal/pipeline"
+	"github.com/aaronl1011/spec-cli/internal/config"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/pipeline"
 )
 
 // GenericHandler provides spec resources and tools without requiring a build session.

@@ -1197,8 +1197,8 @@ Local models are worse at drafting long-form content but perfectly adequate for 
 - **Minimum Go version:** 1.22+ (rangefunc, improved toolchain management)
 - **Distribution:** Single statically-linked binary. No runtime dependencies.
   - GitHub Releases - prebuilt binaries for linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64
-  - Homebrew tap - `brew install nexl/tap/spec`
-  - `go install` - `go install github.com/nexl/spec-cli@latest`
+  - Homebrew tap - `brew install aaronl1011/tap/spec`
+  - `go install` - `go install github.com/aaronl1011/spec-cli@latest`
 - **CLI framework:** [Cobra](https://github.com/spf13/cobra) for command routing, flag parsing, and shell completion generation
 - **Startup target:** <100ms to first output from SQLite cache. The dashboard (`spec` no args) must feel instant.
 

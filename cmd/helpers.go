@@ -6,12 +6,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nexl/spec-cli/internal/adapter"
-	"github.com/nexl/spec-cli/internal/adapter/noop"
-	"github.com/nexl/spec-cli/internal/adapter/resolve"
-	"github.com/nexl/spec-cli/internal/config"
-	"github.com/nexl/spec-cli/internal/markdown"
-	"github.com/nexl/spec-cli/internal/store"
+	"github.com/aaronl1011/spec-cli/internal/adapter"
+	"github.com/aaronl1011/spec-cli/internal/adapter/noop"
+	"github.com/aaronl1011/spec-cli/internal/adapter/resolve"
+	"github.com/aaronl1011/spec-cli/internal/config"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/store"
 )
 
 // resolveConfig loads the full configuration chain.

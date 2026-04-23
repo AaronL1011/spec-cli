@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nexl/spec-cli/internal/adapter"
+	"github.com/aaronl1011/spec-cli/internal/adapter"
 )
 
 func TestNotify_Success(t *testing.T) {

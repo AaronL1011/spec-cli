@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nexl/spec-cli/internal/markdown"
-	"github.com/nexl/spec-cli/internal/store"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/store"
 )
 
 // MCPServer serves spec context to MCP-compatible agents.

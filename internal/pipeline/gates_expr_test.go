@@ -3,8 +3,8 @@ package pipeline
 import (
 	"testing"
 
-	"github.com/nexl/spec-cli/internal/config"
-	"github.com/nexl/spec-cli/internal/pipeline/expr"
+	"github.com/aaronl1011/spec-cli/internal/config"
+	"github.com/aaronl1011/spec-cli/internal/pipeline/expr"
 )
 
 func TestEvaluateGatesWithExpressions(t *testing.T) {

@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/nexl/spec-cli/internal/markdown"
-	"github.com/nexl/spec-cli/internal/pipeline"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/pipeline"
 	"github.com/spf13/cobra"
 )
 

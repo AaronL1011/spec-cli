@@ -7,10 +7,10 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/nexl/spec-cli/internal/adapter"
-	gitpkg "github.com/nexl/spec-cli/internal/git"
-	"github.com/nexl/spec-cli/internal/markdown"
-	"github.com/nexl/spec-cli/internal/store"
+	"github.com/aaronl1011/spec-cli/internal/adapter"
+	gitpkg "github.com/aaronl1011/spec-cli/internal/git"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/store"
 )
 
 // Engine orchestrates the build process.

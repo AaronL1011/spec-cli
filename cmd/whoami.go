@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/nexl/spec-cli/internal/config"
+	"github.com/aaronl1011/spec-cli/internal/config"
 	"github.com/spf13/cobra"
 )
 

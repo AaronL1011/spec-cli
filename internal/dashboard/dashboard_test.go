@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/nexl/spec-cli/internal/config"
+	"github.com/aaronl1011/spec-cli/internal/config"
 )
 
 func TestPendingCount_NilConfig(t *testing.T) {

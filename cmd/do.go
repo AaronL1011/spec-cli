@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nexl/spec-cli/internal/awareness"
-	"github.com/nexl/spec-cli/internal/build"
-	gitpkg "github.com/nexl/spec-cli/internal/git"
-	"github.com/nexl/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/awareness"
+	"github.com/aaronl1011/spec-cli/internal/build"
+	gitpkg "github.com/aaronl1011/spec-cli/internal/git"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
 	"github.com/spf13/cobra"
 )
 

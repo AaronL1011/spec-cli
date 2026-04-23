@@ -5,10 +5,10 @@ import (
 	"os"
 	"strings"
 
-	"github.com/nexl/spec-cli/internal/config"
-	"github.com/nexl/spec-cli/internal/pipeline"
-	"github.com/nexl/spec-cli/internal/pipeline/expr"
-	"github.com/nexl/spec-cli/internal/tui"
+	"github.com/aaronl1011/spec-cli/internal/config"
+	"github.com/aaronl1011/spec-cli/internal/pipeline"
+	"github.com/aaronl1011/spec-cli/internal/pipeline/expr"
+	"github.com/aaronl1011/spec-cli/internal/tui"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
 )

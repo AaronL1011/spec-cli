@@ -6,8 +6,8 @@ import (
 	"os"
 	"strings"
 
-	gitpkg "github.com/nexl/spec-cli/internal/git"
-	"github.com/nexl/spec-cli/internal/pipeline"
+	gitpkg "github.com/aaronl1011/spec-cli/internal/git"
+	"github.com/aaronl1011/spec-cli/internal/pipeline"
 	"github.com/spf13/cobra"
 )
 

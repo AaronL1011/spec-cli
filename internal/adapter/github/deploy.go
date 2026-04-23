@@ -7,7 +7,7 @@ import (
 	"time"
 
 	gh "github.com/google/go-github/v62/github"
-	"github.com/nexl/spec-cli/internal/adapter"
+	"github.com/aaronl1011/spec-cli/internal/adapter"
 )
 
 // DeployClient implements adapter.DeployAdapter using GitHub Actions workflow dispatch.

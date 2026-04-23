@@ -1,4 +1,4 @@
-module github.com/nexl/spec-cli
+module github.com/aaronl1011/spec-cli
 
 go 1.25.0
 

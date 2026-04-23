@@ -8,9 +8,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/nexl/spec-cli/internal/config"
-	"github.com/nexl/spec-cli/internal/markdown"
-	"github.com/nexl/spec-cli/internal/planning"
+	"github.com/aaronl1011/spec-cli/internal/config"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/planning"
 )
 
 // Engine orchestrates build step execution.

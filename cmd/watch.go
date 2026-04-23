@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/nexl/spec-cli/internal/dashboard"
+	"github.com/aaronl1011/spec-cli/internal/dashboard"
 	"github.com/spf13/cobra"
 )
 

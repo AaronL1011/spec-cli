@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/nexl/spec-cli/internal/adapter"
-	gitpkg "github.com/nexl/spec-cli/internal/git"
-	"github.com/nexl/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/adapter"
+	gitpkg "github.com/aaronl1011/spec-cli/internal/git"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
 	"github.com/spf13/cobra"
 )
 

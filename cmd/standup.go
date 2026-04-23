@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/nexl/spec-cli/internal/adapter"
-	"github.com/nexl/spec-cli/internal/store"
+	"github.com/aaronl1011/spec-cli/internal/adapter"
+	"github.com/aaronl1011/spec-cli/internal/store"
 	"github.com/spf13/cobra"
 )
 

@@ -5,8 +5,8 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/nexl/spec-cli/internal/config"
-	"github.com/nexl/spec-cli/internal/markdown"
+	"github.com/aaronl1011/spec-cli/internal/config"
+	"github.com/aaronl1011/spec-cli/internal/markdown"
 )
 
 func defaultPipeline() config.PipelineConfig {
