@@ -73,7 +73,7 @@ func (c *Client) CreateEpic(ctx context.Context, spec adapter.SpecMeta) (string,
 	if err != nil {
 		return "", err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -81,7 +81,7 @@ func (c *Client) CreateEpic(ctx context.Context, spec adapter.SpecMeta) (string,
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return "", fmt.Errorf("Jira API error creating epic (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
+		return "", fmt.Errorf("jira API error creating epic (HTTP %d): %s", resp.StatusCode, truncate(string(body), 500))
 	}
 
 	var result createIssueResponse
@@ -122,11 +122,11 @@ func (c *Client) UpdateStatus(ctx context.Context, epicKey string, status string
 	if err != nil {
 		return err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("Jira API error transitioning %s (HTTP %d): %s", epicKey, resp.StatusCode, truncate(string(body), 500))
+		return fmt.Errorf("jira API error transitioning %s (HTTP %d): %s", epicKey, resp.StatusCode, truncate(string(body), 500))
 	}
 	return nil
 }
@@ -141,7 +141,7 @@ func (c *Client) FetchUpdates(ctx context.Context, epicKey string) (*adapter.PMU
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -149,7 +149,7 @@ func (c *Client) FetchUpdates(ctx context.Context, epicKey string) (*adapter.PMU
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("Jira API error fetching %s (HTTP %d): %s", epicKey, resp.StatusCode, truncate(string(body), 500))
+		return nil, fmt.Errorf("jira API error fetching %s (HTTP %d): %s", epicKey, resp.StatusCode, truncate(string(body), 500))
 	}
 
 	var issue issueResponse

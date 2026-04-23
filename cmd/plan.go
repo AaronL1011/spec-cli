@@ -363,7 +363,7 @@ func resolveSpecIDFromArgs(args []string) (string, error) {
 	// Try most recent session
 	db, err := openDB()
 	if err == nil {
-		defer db.Close()
+		defer func() { _ = db.Close() }()
 		if recent, err := db.SessionMostRecent(); err == nil && recent != "" {
 			return recent, nil
 		}

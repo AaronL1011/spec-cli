@@ -160,16 +160,16 @@ func buildFastTrackSpec(id, title, author, cycle string, labels []string, repo s
 		fmt.Fprintf(&sb, "repos:\n  - %s\n", repo)
 	}
 	fmt.Fprintf(&sb, "created: %s\n", now.Format("2006-01-02"))
-	sb.WriteString(fmt.Sprintf("updated: %s\n", now.Format("2006-01-02")))
+	fmt.Fprintf(&sb, "updated: %s\n", now.Format("2006-01-02"))
 	sb.WriteString("---\n\n")
 
 	// Title
-	sb.WriteString(fmt.Sprintf("# %s: %s\n\n", id, title))
+	fmt.Fprintf(&sb, "# %s: %s\n\n", id, title)
 
 	// Labels badge
 	if len(labels) > 0 {
 		for _, l := range labels {
-			sb.WriteString(fmt.Sprintf("`%s` ", l))
+			fmt.Fprintf(&sb, "`%s` ", l)
 		}
 		sb.WriteString("\n\n")
 	}

@@ -106,7 +106,7 @@ func runBuildMCPServer(cmd *cobra.Command, specID string, rc *config.ResolvedCon
 	if err != nil {
 		return fmt.Errorf("database error: %w", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 
 	session, err := build.LoadSession(db, specID)
 	if err != nil {
