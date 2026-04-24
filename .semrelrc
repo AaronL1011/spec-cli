@@ -1,0 +1,19 @@
+{
+  "plugins": {
+    "commit-analyzer": {
+      "name": "default"
+    },
+    "changelog-generator": {
+      "name": "default",
+      "options": {
+        "emojis": true
+      }
+    },
+    "provider": {
+      "name": "github"
+    },
+    "files-updater": {
+      "name": "default"
+    }
+  }
+}
