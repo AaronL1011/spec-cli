@@ -34,9 +34,11 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Fetch new tag
+      - name: Fetch new tag and clean up
         if: steps.semrel.outputs.version != ''
-        run: git fetch --tags
+        run: |
+          git fetch --tags
+          rm -rf .semrel .generated-go-semantic-release-changelog.md
 
       - name: Generate man pages
         if: steps.semrel.outputs.version != ''
