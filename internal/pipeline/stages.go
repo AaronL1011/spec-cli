@@ -92,6 +92,42 @@ func ValidateRevert(pipeline config.PipelineConfig, currentStage, targetStage, u
 	return nil
 }
 
+// TerminalStages returns stages that represent completion.
+// The last required stage and any auto-archive stages are considered terminal.
+// Falls back to "done" and "closed" if nothing else matches.
+func TerminalStages(pipeline config.PipelineConfig) []string {
+	var terminal []string
+	seen := make(map[string]bool)
+
+	// Any auto-archive stage is terminal
+	for _, s := range pipeline.Stages {
+		if s.AutoArchive {
+			terminal = append(terminal, s.Name)
+			seen[s.Name] = true
+		}
+	}
+
+	// The last required stage is terminal (typically "done")
+	required := pipeline.RequiredStages()
+	if len(required) > 0 {
+		last := required[len(required)-1].Name
+		if !seen[last] {
+			terminal = append(terminal, last)
+		}
+	}
+
+	// Fallback: if no terminal stages found, treat "done" and "closed" as terminal
+	if len(terminal) == 0 {
+		for _, s := range pipeline.Stages {
+			if s.Name == "done" || s.Name == "closed" {
+				terminal = append(terminal, s.Name)
+			}
+		}
+	}
+
+	return terminal
+}
+
 // SkippedStages returns the stages that would be skipped in a fast-track.
 func SkippedStages(pipeline config.PipelineConfig, from, to string) []string {
 	fromIdx := pipeline.StageIndex(from)

@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/aaronl1011/spec-cli/internal/adapter"
 	gitpkg "github.com/aaronl1011/spec-cli/internal/git"
 	"github.com/aaronl1011/spec-cli/internal/pipeline"
+	"github.com/aaronl1011/spec-cli/internal/pipeline/effects"
 	"github.com/spf13/cobra"
 )
 
@@ -72,21 +72,45 @@ func runRevert(cmd *cobra.Command, args []string) error {
 			return "", err
 		}
 
-		// Notify both owners — non-fatal, warn on failure
-		if rc.HasIntegration("comms") {
-			currentOwner := pipeline.StageOwner(pl, previousStage)
-			targetOwner := pipeline.StageOwner(pl, targetStage)
-			if err := reg.Comms().Notify(ctx(), adapter.Notification{
-				SpecID:  specID,
-				Title:   meta.Title,
-				Message: fmt.Sprintf("[%s] Reverted: %s → %s | Reason: %s | From: %s, To: %s", specID, previousStage, targetStage, reason, currentOwner, targetOwner),
-			}); err != nil {
-				warnf("could not send notification: %v", err)
+		// Best-effort: effects and activity logging degrade gracefully if DB unavailable
+		db, _ := openDB()
+		if db != nil {
+			defer func() { _ = db.Close() }()
+		}
+
+		resolvedPipeline, _ := pipeline.Resolve(rc.Team.Pipeline)
+		executor := effects.NewExecutor(false)
+		execCtx := effects.ExecutionContext{
+			SpecID:         specID,
+			SpecTitle:      meta.Title,
+			FromStage:      previousStage,
+			ToStage:        targetStage,
+			TransitionType: effects.TransitionRevert,
+			User:           rc.UserName(),
+			UserRole:       role,
+			Notifier:       &effects.NotifierAdapter{Comms: reg.Comms(), SpecID: specID, Title: meta.Title},
+			Webhooker:      &effects.WebhookerAdapter{},
+			Logger:         &effects.LoggerAdapter{DB: db, SpecDir: repoPath, SpecID: specID},
+		}
+
+		if exitStage := resolvedPipeline.StageByName(previousStage); exitStage != nil {
+			if len(exitStage.Transitions.Revert.Effects) > 0 {
+				runEffects(executor, exitStage.Transitions.Revert.Effects, execCtx)
+			}
+		}
+		if enterStage := resolvedPipeline.StageByName(targetStage); enterStage != nil {
+			if len(enterStage.OnEnter) > 0 {
+				runEffects(executor, enterStage.OnEnter, execCtx)
 			}
 		}
 
 		fmt.Printf("✓ %s reverted: %s → %s\n", specID, previousStage, targetStage)
 		fmt.Printf("  Reason: %s\n", reason)
+
+		if db != nil {
+			metaJSON := fmt.Sprintf(`{"from_stage":%q,"to_stage":%q,"reason":%q}`, previousStage, targetStage, reason)
+			_ = db.ActivityLog(specID, "revert", fmt.Sprintf("reverted to %s", targetStage), metaJSON, rc.UserName())
+		}
 
 		return fmt.Sprintf("fix: revert %s to %s — %s", specID, targetStage, reason), nil
 	})

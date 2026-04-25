@@ -107,6 +107,13 @@ func addQuestion(rc *config.ResolvedConfig, specID, question string) error {
 	fmt.Printf("✓ Decision #%03d added to %s\n", decisionNum, specID)
 	fmt.Printf("  Question: %s\n", question)
 	fmt.Printf("  Resolve with: spec decide %s --resolve %d --decision \"...\" --rationale \"...\"\n", specID, decisionNum)
+
+	if db, dbErr := openDB(); dbErr == nil {
+		defer func() { _ = db.Close() }()
+		metaJSON := fmt.Sprintf(`{"number":%d}`, decisionNum)
+		_ = db.ActivityLog(specID, "decide", fmt.Sprintf("decision #%03d: %s", decisionNum, question), metaJSON, rc.UserName())
+	}
+
 	return nil
 }
 
@@ -129,6 +136,12 @@ func resolveDecision(rc *config.ResolvedConfig, specID string, number int, decis
 		fmt.Printf("  Decision: %s\n", decision)
 		if rationale != "" {
 			fmt.Printf("  Rationale: %s\n", rationale)
+		}
+
+		if db, dbErr := openDB(); dbErr == nil {
+			defer func() { _ = db.Close() }()
+			metaJSON := fmt.Sprintf(`{"number":%d}`, number)
+			_ = db.ActivityLog(specID, "decide_resolve", fmt.Sprintf("resolved #%03d: %s", number, decision), metaJSON, rc.UserName())
 		}
 
 		return fmt.Sprintf("docs: %s — resolve decision #%03d: %s", specID, number, decision), nil

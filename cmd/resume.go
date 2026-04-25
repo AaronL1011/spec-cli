@@ -65,6 +65,12 @@ func runResume(cmd *cobra.Command, args []string) error {
 
 		fmt.Printf("✓ %s resumed to %s\n", specID, resumeStage)
 
+		if db, dbErr := openDB(); dbErr == nil {
+			defer func() { _ = db.Close() }()
+			metaJSON := fmt.Sprintf(`{"to_stage":%q}`, resumeStage)
+			_ = db.ActivityLog(specID, "resume", fmt.Sprintf("resumed to %s", resumeStage), metaJSON, rc.UserName())
+		}
+
 		return fmt.Sprintf("fix: resume %s to %s", specID, resumeStage), nil
 	})
 }

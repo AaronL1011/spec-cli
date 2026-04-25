@@ -53,7 +53,7 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	}
 
 	hasPRStack := markdown.IsSectionNonEmpty(sections, "pr_stack_plan")
-	results := pipeline.EvaluateGates(pl, nextStage, sections, hasPRStack, false)
+	results := pipeline.EvaluateGates(pl, nextStage, sections, hasPRStack, false, meta)
 
 	if len(results) == 0 {
 		fmt.Printf("✓ %s: no gates defined for %s → %s\n", specID, meta.Status, nextStage)
