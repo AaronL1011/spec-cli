@@ -76,6 +76,12 @@ func runEject(cmd *cobra.Command, args []string) error {
 		fmt.Printf("  Reason: %s\n", reason)
 		fmt.Printf("  Resume with: spec resume %s\n", specID)
 
+		if db, dbErr := openDB(); dbErr == nil {
+			defer func() { _ = db.Close() }()
+			metaJSON := fmt.Sprintf(`{"from_stage":%q,"reason":%q}`, result.PreviousStage, reason)
+			_ = db.ActivityLog(specID, "eject", fmt.Sprintf("blocked from %s", result.PreviousStage), metaJSON, rc.UserName())
+		}
+
 		return fmt.Sprintf("fix: eject %s — %s", specID, reason), nil
 	})
 }

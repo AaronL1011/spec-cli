@@ -92,7 +92,7 @@ func runStatus(cmd *cobra.Command, args []string) error {
 
 	// Gate check for current stage
 	hasPRStack := markdown.IsSectionNonEmpty(sections, "pr_stack_plan")
-	results := pipeline.EvaluateGates(pl, meta.Status, sections, hasPRStack, false)
+	results := pipeline.EvaluateGates(pl, meta.Status, sections, hasPRStack, false, meta)
 	if len(results) > 0 {
 		fmt.Println("Gate checks (current stage):")
 		for _, r := range results {
