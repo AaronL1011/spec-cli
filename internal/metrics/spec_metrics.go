@@ -104,23 +104,23 @@ func FormatSpecSummary(sm *SpecMetrics) string {
 	var sb strings.Builder
 
 	if len(sm.StagesVisited) > 0 {
-		sb.WriteString(fmt.Sprintf("- **Stages**: %s\n", strings.Join(sm.StagesVisited, " → ")))
+		fmt.Fprintf(&sb, "- **Stages**: %s\n", strings.Join(sm.StagesVisited, " → "))
 	}
 	if sm.TotalTime > 0 {
-		sb.WriteString(fmt.Sprintf("- **Total time**: %s\n", FormatDuration(sm.TotalTime)))
+		fmt.Fprintf(&sb, "- **Total time**: %s\n", FormatDuration(sm.TotalTime))
 	}
 	if sm.Reversions > 0 {
-		sb.WriteString(fmt.Sprintf("- **Reversions**: %d\n", sm.Reversions))
+		fmt.Fprintf(&sb, "- **Reversions**: %d\n", sm.Reversions)
 	}
 	if sm.Ejections > 0 {
-		sb.WriteString(fmt.Sprintf("- **Ejections**: %d\n", sm.Ejections))
+		fmt.Fprintf(&sb, "- **Ejections**: %d\n", sm.Ejections)
 	}
 
 	if len(sm.TimePerStage) > 0 {
 		sb.WriteString("\n**Time per stage:**\n\n")
 		for _, stage := range sm.StagesVisited {
 			if d, ok := sm.TimePerStage[stage]; ok {
-				sb.WriteString(fmt.Sprintf("- **%s**: %s\n", stage, FormatDuration(d)))
+				fmt.Fprintf(&sb, "- **%s**: %s\n", stage, FormatDuration(d))
 			}
 		}
 	}
