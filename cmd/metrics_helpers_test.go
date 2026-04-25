@@ -64,7 +64,7 @@ func TestScanSpecsByStage(t *testing.T) {
 	notesPath := filepath.Join(dir, "notes.txt")
 	if err := os.WriteFile(notesPath, []byte("not markdown"), 0o644); err != nil {
 		t.Fatalf("write %s: %v", notesPath, err)
-	} // not .md... wait it is .txt
+	}
 
 	counts := scanSpecsByStage(dir)
 
