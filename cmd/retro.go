@@ -178,8 +178,8 @@ func writeRetroSections(specsDir string, terminalStages []string, entries []stor
 // Per-spec journey first, then cycle-level context.
 func buildRetroSection(spec *metrics.SpecMetrics, cycle *metrics.PipelineMetrics, stageNames []string, label string) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("*Auto-generated retrospective — %s — %s*\n\n",
-		label, time.Now().Format("2006-01-02")))
+	fmt.Fprintf(&sb, "*Auto-generated retrospective — %s — %s*\n\n",
+		label, time.Now().Format("2006-01-02"))
 
 	// Per-spec journey
 	sb.WriteString("### This spec\n\n")
@@ -187,13 +187,13 @@ func buildRetroSection(spec *metrics.SpecMetrics, cycle *metrics.PipelineMetrics
 
 	// Cycle context
 	sb.WriteString("\n### Cycle context\n\n")
-	sb.WriteString(fmt.Sprintf("- **Specs completed**: %d\n", cycle.SpecsCompleted))
+	fmt.Fprintf(&sb, "- **Specs completed**: %d\n", cycle.SpecsCompleted)
 	if cycle.TotalAdvances > 0 {
-		sb.WriteString(fmt.Sprintf("- **Reversion rate**: %.0f%%\n", cycle.ReversionRate*100))
+		fmt.Fprintf(&sb, "- **Reversion rate**: %.0f%%\n", cycle.ReversionRate*100)
 	}
 	if cycle.BottleneckStage != "" {
-		sb.WriteString(fmt.Sprintf("- **Bottleneck**: %s (%s avg)\n",
-			cycle.BottleneckStage, metrics.FormatDuration(cycle.AvgTimePerStage[cycle.BottleneckStage])))
+		fmt.Fprintf(&sb, "- **Bottleneck**: %s (%s avg)\n",
+			cycle.BottleneckStage, metrics.FormatDuration(cycle.AvgTimePerStage[cycle.BottleneckStage]))
 	}
 
 	sb.WriteString("\n")

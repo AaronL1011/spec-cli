@@ -60,8 +60,11 @@ func TestScanSpecsByStage(t *testing.T) {
 	writeSpecFile(t, dir, "SPEC-004.md", "done")
 
 	// Non-spec files should be ignored
-	writeSpecFile(t, dir, "README.md", "draft")                               // no SPEC- prefix in content
-	os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("not markdown"), 0o644) // not .md... wait it is .txt
+	writeSpecFile(t, dir, "README.md", "draft") // no SPEC- prefix in content
+	notesPath := filepath.Join(dir, "notes.txt")
+	if err := os.WriteFile(notesPath, []byte("not markdown"), 0o644); err != nil {
+		t.Fatalf("write %s: %v", notesPath, err)
+	} // not .md... wait it is .txt
 
 	counts := scanSpecsByStage(dir)
 
