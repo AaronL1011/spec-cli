@@ -17,7 +17,7 @@ builds:
       - amd64
       - arm64
     ldflags:
-      - -s -w -X github.com/aaronl1011/spec-cli/cmd.Version={{.Version}}
+      - -s -w -X github.com/aaronl1011/spec/cmd.Version={{.Version}}
     flags:
       - -trimpath
     mod_timestamp: "{{ .CommitTimestamp }}"
@@ -39,7 +39,7 @@ brews:
       owner: aaronl1011
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-    homepage: "https://github.com/aaronl1011/spec-cli"
+    homepage: "https://github.com/aaronl1011/spec"
     description: "Developer control plane CLI"
     license: "MIT"
     directory: Formula
@@ -82,7 +82,7 @@ changelog:
 release:
   github:
     owner: aaronl1011
-    name: spec-cli
+    name: spec
   draft: false
   prerelease: auto
   mode: replace
