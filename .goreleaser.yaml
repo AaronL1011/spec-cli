@@ -8,6 +8,7 @@ before:
 builds:
   - env:
       - CGO_ENABLED=0
+    binary: spec
     goos:
       - linux
       - darwin
@@ -33,7 +34,8 @@ archives:
       - docs/man/*
 
 brews:
-  - repository:
+  - name: spec
+    repository:
       owner: aaronl1011
       name: homebrew-tap
       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
