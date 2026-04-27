@@ -122,25 +122,25 @@ func TestEvaluateGates(t *testing.T) {
 	}
 
 	// tl-review gate: section_complete: problem_statement → should pass
-	results := EvaluateGates(p, "tl-review", sections, false, false)
+	results := EvaluateGates(p, "tl-review", sections, false, false, nil)
 	if !AllGatesPassed(results) {
 		t.Errorf("tl-review gates should pass, failed: %v", FailedGates(results))
 	}
 
 	// engineering gate: section_complete: acceptance_criteria → should fail
-	results = EvaluateGates(p, "engineering", sections, false, false)
+	results = EvaluateGates(p, "engineering", sections, false, false, nil)
 	if AllGatesPassed(results) {
 		t.Error("engineering gates should fail (empty acceptance_criteria)")
 	}
 
 	// pr-review gate: pr_stack_exists → should fail
-	results = EvaluateGates(p, "pr-review", sections, false, false)
+	results = EvaluateGates(p, "pr-review", sections, false, false, nil)
 	if AllGatesPassed(results) {
 		t.Error("pr-review gates should fail (no PR stack)")
 	}
 
 	// pr-review with PR stack → should pass
-	results = EvaluateGates(p, "pr-review", sections, true, false)
+	results = EvaluateGates(p, "pr-review", sections, true, false, nil)
 	if !AllGatesPassed(results) {
 		t.Errorf("pr-review gates should pass with PR stack, failed: %v", FailedGates(results))
 	}

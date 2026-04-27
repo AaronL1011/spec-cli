@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/aaronl1011/spec-cli/internal/config"
 	gitpkg "github.com/aaronl1011/spec-cli/internal/git"
@@ -12,9 +11,9 @@ import (
 )
 
 var decideCmd = &cobra.Command{
-	Use:   "decide <id>",
+	Use:   "decide [id]",
 	Short: "Manage the decision log for a spec",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE:  runDecide,
 }
 
@@ -28,7 +27,10 @@ func init() {
 }
 
 func runDecide(cmd *cobra.Command, args []string) error {
-	specID := strings.ToUpper(args[0])
+	specID, err := resolveSpecIDArg(args, "spec decide <id>")
+	if err != nil {
+		return err
+	}
 	question, _ := cmd.Flags().GetString("question")
 	resolveNum, _ := cmd.Flags().GetInt("resolve")
 	decision, _ := cmd.Flags().GetString("decision")
@@ -107,6 +109,13 @@ func addQuestion(rc *config.ResolvedConfig, specID, question string) error {
 	fmt.Printf("✓ Decision #%03d added to %s\n", decisionNum, specID)
 	fmt.Printf("  Question: %s\n", question)
 	fmt.Printf("  Resolve with: spec decide %s --resolve %d --decision \"...\" --rationale \"...\"\n", specID, decisionNum)
+
+	if db, dbErr := openDB(); dbErr == nil {
+		defer func() { _ = db.Close() }()
+		metaJSON := fmt.Sprintf(`{"number":%d}`, decisionNum)
+		_ = db.ActivityLog(specID, "decide", fmt.Sprintf("decision #%03d: %s", decisionNum, question), metaJSON, rc.UserName())
+	}
+
 	return nil
 }
 
@@ -129,6 +138,12 @@ func resolveDecision(rc *config.ResolvedConfig, specID string, number int, decis
 		fmt.Printf("  Decision: %s\n", decision)
 		if rationale != "" {
 			fmt.Printf("  Rationale: %s\n", rationale)
+		}
+
+		if db, dbErr := openDB(); dbErr == nil {
+			defer func() { _ = db.Close() }()
+			metaJSON := fmt.Sprintf(`{"number":%d}`, number)
+			_ = db.ActivityLog(specID, "decide_resolve", fmt.Sprintf("resolved #%03d: %s", number, decision), metaJSON, rc.UserName())
 		}
 
 		return fmt.Sprintf("docs: %s — resolve decision #%03d: %s", specID, number, decision), nil

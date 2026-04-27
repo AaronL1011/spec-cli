@@ -105,9 +105,7 @@ func (c *Client) UpdateStatus(ctx context.Context, epicKey string, status string
 		return err
 	}
 	if transitionID == "" {
-		// No matching transition — the issue may already be in the target status,
-		// or the Jira workflow doesn't have a matching transition name.
-		return nil
+		return fmt.Errorf("no Jira transition found for %s to status %q — align pipeline status names with Jira workflow transitions", epicKey, status)
 	}
 
 	payload := transitionRequest{
@@ -284,9 +282,9 @@ type transitionsResponse struct {
 }
 
 type transition struct {
-	ID   string        `json:"id"`
-	Name string        `json:"name"`
-	To   transitionTo  `json:"to"`
+	ID   string       `json:"id"`
+	Name string       `json:"name"`
+	To   transitionTo `json:"to"`
 }
 
 type transitionTo struct {

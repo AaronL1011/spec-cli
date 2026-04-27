@@ -69,6 +69,44 @@ func (db *DB) ActivityPrune(olderThan time.Duration) (int64, error) {
 	return result.RowsAffected()
 }
 
+// ActivityCountByType returns event counts grouped by event_type since the given time.
+func (db *DB) ActivityCountByType(since time.Time) (map[string]int, error) {
+	rows, err := db.conn.Query(
+		`SELECT event_type, COUNT(*) FROM activity WHERE created_at >= ? GROUP BY event_type`,
+		since.Unix(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("activity count by type: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	counts := make(map[string]int)
+	for rows.Next() {
+		var eventType string
+		var count int
+		if err := rows.Scan(&eventType, &count); err != nil {
+			return nil, fmt.Errorf("scanning count row: %w", err)
+		}
+		counts[eventType] = count
+	}
+	return counts, rows.Err()
+}
+
+// ActivityForType returns all entries of a specific event type since the given time.
+func (db *DB) ActivityForType(eventType string, since time.Time) ([]ActivityEntry, error) {
+	rows, err := db.conn.Query(
+		`SELECT id, spec_id, event_type, summary, metadata, user_name, created_at
+		 FROM activity WHERE event_type = ? AND created_at >= ? ORDER BY created_at ASC`,
+		eventType, since.Unix(),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("activity for type %q: %w", eventType, err)
+	}
+	defer func() { _ = rows.Close() }()
+
+	return scanActivityRows(rows)
+}
+
 func scanActivityRows(rows interface {
 	Next() bool
 	Scan(dest ...interface{}) error

@@ -110,6 +110,25 @@ func TestFetchMentions_NoGraphConfig_ReturnsNil(t *testing.T) {
 	}
 }
 
+func TestFetchMentions_GraphError_ReturnsError(t *testing.T) {
+	client := NewClient("https://webhook", "", "token", "team", "channel")
+	client.http = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusForbidden,
+				Body:       http.NoBody,
+				Header:     make(http.Header),
+				Request:    req,
+			}, nil
+		}),
+	}
+
+	_, err := client.FetchMentions(context.Background(), time.Now().Add(-24*time.Hour))
+	if err == nil {
+		t.Fatal("expected Graph error")
+	}
+}
+
 func TestExtractSpecID(t *testing.T) {
 	tests := []struct {
 		text string
@@ -126,6 +145,12 @@ func TestExtractSpecID(t *testing.T) {
 			t.Errorf("extractSpecID(%q) = %q, want %q", tt.text, got, tt.want)
 		}
 	}
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 func TestStripHTML(t *testing.T) {

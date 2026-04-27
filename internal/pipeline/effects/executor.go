@@ -12,12 +12,12 @@ import (
 
 // Result represents the outcome of executing an effect.
 type Result struct {
-	Effect    config.EffectConfig
-	Success   bool
-	Message   string
-	Error     error
-	Duration  time.Duration
-	Skipped   bool
+	Effect     config.EffectConfig
+	Success    bool
+	Message    string
+	Error      error
+	Duration   time.Duration
+	Skipped    bool
 	SkipReason string
 }
 
@@ -39,12 +39,13 @@ type ExecutionContext struct {
 	User           string
 	UserRole       string
 	DryRun         bool
-	
+
 	// Adapters for effects that need external services
-	Notifier   Notifier
-	Syncer     Syncer
-	Webhooker  Webhooker
-	Logger     Logger
+	Notifier  Notifier
+	Syncer    Syncer
+	PMUpdater PMUpdater
+	Webhooker Webhooker
+	Logger    Logger
 }
 
 // Notifier sends notifications.
@@ -55,6 +56,11 @@ type Notifier interface {
 // Syncer syncs to external systems.
 type Syncer interface {
 	Sync(ctx context.Context, direction string, specID string) error
+}
+
+// PMUpdater updates project-management tools.
+type PMUpdater interface {
+	UpdateStatus(ctx context.Context, status string) error
 }
 
 // Webhooker calls webhooks.
@@ -109,6 +115,8 @@ func (e *Executor) executeOne(ctx context.Context, effect config.EffectConfig, e
 		return e.executeNotify(ctx, effect, execCtx)
 	case effect.Sync != "":
 		return e.executeSync(ctx, effect, execCtx)
+	case effect.UpdatePM != nil:
+		return e.executeUpdatePM(ctx, effect, execCtx)
 	case effect.LogDecision != "":
 		return e.executeLogDecision(ctx, effect, execCtx)
 	case effect.Increment != "":
@@ -125,6 +133,34 @@ func (e *Executor) executeOne(ctx context.Context, effect config.EffectConfig, e
 			Success: false,
 			Error:   fmt.Errorf("unknown effect type"),
 		}
+	}
+}
+
+func (e *Executor) executeUpdatePM(ctx context.Context, effect config.EffectConfig, execCtx ExecutionContext) Result {
+	if execCtx.PMUpdater == nil {
+		return Result{
+			Effect:     effect,
+			Success:    true,
+			Skipped:    true,
+			SkipReason: "no PM updater configured",
+		}
+	}
+
+	status := effect.UpdatePM.Status
+	if status == "" {
+		status = execCtx.ToStage
+	}
+	if err := execCtx.PMUpdater.UpdateStatus(ctx, status); err != nil {
+		return Result{
+			Effect:  effect,
+			Success: false,
+			Error:   fmt.Errorf("PM update failed: %w", err),
+		}
+	}
+	return Result{
+		Effect:  effect,
+		Success: true,
+		Message: fmt.Sprintf("updated PM status to %s", status),
 	}
 }
 
@@ -308,6 +344,11 @@ func describeEffect(e config.EffectConfig) string {
 		return "notify"
 	case e.Sync != "":
 		return fmt.Sprintf("sync %s", e.Sync)
+	case e.UpdatePM != nil:
+		if e.UpdatePM.Status != "" {
+			return fmt.Sprintf("update PM %s", e.UpdatePM.Status)
+		}
+		return "update PM"
 	case e.LogDecision != "":
 		return fmt.Sprintf("log decision: %s", e.LogDecision)
 	case e.Increment != "":

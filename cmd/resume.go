@@ -12,9 +12,9 @@ import (
 )
 
 var resumeCmd = &cobra.Command{
-	Use:   "resume <id>",
+	Use:   "resume [id]",
 	Short: "Return a blocked spec to its pre-block stage",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE:  runResume,
 }
 
@@ -24,7 +24,10 @@ func init() {
 }
 
 func runResume(cmd *cobra.Command, args []string) error {
-	specID := strings.ToUpper(args[0])
+	specID, err := resolveSpecIDArg(args, "spec resume <id>")
+	if err != nil {
+		return err
+	}
 	resumeStage, _ := cmd.Flags().GetString("stage")
 
 	rc, err := resolveConfig()
@@ -64,6 +67,12 @@ func runResume(cmd *cobra.Command, args []string) error {
 		}
 
 		fmt.Printf("✓ %s resumed to %s\n", specID, resumeStage)
+
+		if db, dbErr := openDB(); dbErr == nil {
+			defer func() { _ = db.Close() }()
+			metaJSON := fmt.Sprintf(`{"to_stage":%q}`, resumeStage)
+			_ = db.ActivityLog(specID, "resume", fmt.Sprintf("resumed to %s", resumeStage), metaJSON, rc.UserName())
+		}
 
 		return fmt.Sprintf("fix: resume %s to %s", specID, resumeStage), nil
 	})

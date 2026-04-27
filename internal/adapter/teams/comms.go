@@ -15,6 +15,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -88,27 +89,31 @@ func (c *Client) FetchMentions(ctx context.Context, since time.Time) ([]adapter.
 
 	resp, err := c.http.Do(req)
 	if err != nil {
-		return nil, nil // degrade gracefully on network error
+		return nil, fmt.Errorf("fetching Teams mentions from Graph: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, nil // degrade gracefully on auth/permission error
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("teams Graph mentions error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 200))
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("reading Teams Graph response: %w", err)
 	}
 
 	var result graphMessagesResponse
 	if err := json.Unmarshal(body, &result); err != nil {
-		return nil, nil
+		return nil, fmt.Errorf("parsing Teams Graph response: %w", err)
 	}
 
 	var mentions []adapter.Mention
 	for _, msg := range result.Value {
-		created, _ := time.Parse(time.RFC3339, msg.CreatedDateTime)
+		created, err := time.Parse(time.RFC3339, msg.CreatedDateTime)
+		if err != nil {
+			return nil, fmt.Errorf("parsing Teams message timestamp %q: %w", msg.CreatedDateTime, err)
+		}
 		if created.Before(since) {
 			continue
 		}
@@ -131,7 +136,7 @@ func (c *Client) FetchMentions(ctx context.Context, since time.Time) ([]adapter.
 // postCard sends an Adaptive Card to a Teams webhook.
 func (c *Client) postCard(ctx context.Context, webhookURL string, card adaptiveCard) error {
 	payload := webhookPayload{
-		Type:        "message",
+		Type: "message",
 		Attachments: []attachment{{
 			ContentType: "application/vnd.microsoft.card.adaptive",
 			ContentURL:  "",
@@ -143,21 +148,33 @@ func (c *Client) postCard(ctx context.Context, webhookURL string, card adaptiveC
 	if err != nil {
 		return fmt.Errorf("marshalling Teams payload: %w", err)
 	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(data))
-	if err != nil {
-		return fmt.Errorf("creating Teams request: %w", err)
+	if len(data) > 28*1024 {
+		return fmt.Errorf("teams webhook payload is %d bytes; maximum supported size is 28 KB", len(data))
 	}
-	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := c.http.Do(req)
-	if err != nil {
-		return fmt.Errorf("posting to Teams webhook: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
+	for attempt := 0; attempt < 3; attempt++ {
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, webhookURL, bytes.NewReader(data))
+		if err != nil {
+			return fmt.Errorf("creating Teams request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		resp, err := c.http.Do(req)
+		if err != nil {
+			return fmt.Errorf("posting to Teams webhook: %w", err)
+		}
 		body, _ := io.ReadAll(resp.Body)
+		_ = resp.Body.Close()
+
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return nil
+		}
+		if resp.StatusCode == http.StatusTooManyRequests && attempt < 2 {
+			if err := sleepBeforeRetry(ctx, resp.Header.Get("Retry-After"), attempt); err != nil {
+				return err
+			}
+			continue
+		}
 		return fmt.Errorf("teams webhook error (HTTP %d): %s", resp.StatusCode, truncate(string(body), 200))
 	}
 	return nil
@@ -352,4 +369,21 @@ func stripHTML(s string) string {
 		}
 	}
 	return result.String()
+}
+
+func sleepBeforeRetry(ctx context.Context, retryAfter string, attempt int) error {
+	delay := time.Duration(attempt+1) * 500 * time.Millisecond
+	if retryAfter != "" {
+		if seconds, err := strconv.Atoi(retryAfter); err == nil && seconds > 0 {
+			delay = time.Duration(seconds) * time.Second
+		}
+	}
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

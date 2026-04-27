@@ -2,12 +2,16 @@ package pipeline
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
+	"time"
 
 	"github.com/aaronl1011/spec-cli/internal/config"
 	"github.com/aaronl1011/spec-cli/internal/markdown"
 	"github.com/aaronl1011/spec-cli/internal/pipeline/expr"
 )
+
+var linkPattern = regexp.MustCompile(`https?://[^\s\)\]>]+`)
 
 // GateResult represents the result of a gate check.
 type GateResult struct {
@@ -16,16 +20,30 @@ type GateResult struct {
 	Reason string
 }
 
-// EvaluateGates checks all gates for the current stage.
-// This is the simple version that doesn't support expression gates.
-func EvaluateGates(pipeline config.PipelineConfig, currentStage string, sections []markdown.Section, hasPRStack bool, prsApproved bool) []GateResult {
-	stage := pipeline.StageByName(currentStage)
-	if stage == nil {
-		return nil
+// EvaluateGates checks all gates for the current stage by building a context from raw parameters.
+func EvaluateGates(pipeline config.PipelineConfig, currentStage string, sections []markdown.Section, hasPRStack bool, prsApproved bool, meta *markdown.SpecMeta) []GateResult {
+	var timeInStage time.Duration
+	var revertCount int
+	var specID, specTitle, specStatus string
+	if meta != nil {
+		// Parse updated timestamp to compute time-in-stage for duration gates.
+		// Empty or malformed dates result in timeInStage=0, which may incorrectly pass
+		// gates checking for minimum dwell time — only acceptable because such
+		// gates should reject incomplete/corrupted specs as a safety measure anyway.
+		if meta.Updated != "" {
+			if updated, err := time.Parse("2006-01-02", meta.Updated); err == nil {
+				timeInStage = time.Since(updated)
+			}
+		}
+		revertCount = meta.RevertCount
+		specID = meta.ID
+		specTitle = meta.Title
+		specStatus = meta.Status
 	}
 
-	// Build a minimal expression context from available data
+	// Build expression context from available data
 	ctx := expr.NewContextBuilder().
+		WithSpec(specID, specTitle, specStatus, nil, 0, timeInStage, revertCount).
 		WithPRStack(hasPRStack, 0, 0, false, false).
 		WithPRs(0, 0, prsApproved).
 		Build()
@@ -38,21 +56,11 @@ func EvaluateGates(pipeline config.PipelineConfig, currentStage string, sections
 		}
 	}
 
-	var results []GateResult
-	for _, gate := range stage.Gates {
-		result := evaluateGateWithContext(gate, sections, hasPRStack, prsApproved, ctx)
-		results = append(results, result)
-	}
-	return results
+	return evaluateGatesWithBuiltContext(pipeline, currentStage, sections, ctx)
 }
 
-// EvaluateGatesWithContext checks all gates using a full expression context.
+// EvaluateGatesWithContext checks all gates using a pre-built expression context.
 func EvaluateGatesWithContext(pipeline config.PipelineConfig, currentStage string, ctx expr.Context) []GateResult {
-	stage := pipeline.StageByName(currentStage)
-	if stage == nil {
-		return nil
-	}
-
 	// Convert context sections to markdown.Section for compatibility
 	var sections []markdown.Section
 	for slug, sec := range ctx.Sections {
@@ -61,6 +69,16 @@ func EvaluateGatesWithContext(pipeline config.PipelineConfig, currentStage strin
 			content = "non-empty" // placeholder for section check
 		}
 		sections = append(sections, markdown.Section{Slug: slug, Content: content})
+	}
+
+	return evaluateGatesWithBuiltContext(pipeline, currentStage, sections, ctx)
+}
+
+// evaluateGatesWithBuiltContext is the single source of truth for evaluating all gates on a stage.
+func evaluateGatesWithBuiltContext(pipeline config.PipelineConfig, currentStage string, sections []markdown.Section, ctx expr.Context) []GateResult {
+	stage := pipeline.StageByName(currentStage)
+	if stage == nil {
+		return nil
 	}
 
 	var results []GateResult
@@ -140,9 +158,23 @@ func evaluateGateWithContext(gate config.GateConfig, sections []markdown.Section
 	}
 
 	if gate.Duration != "" {
-		// Duration gates are checked elsewhere (requires timestamp)
-		// For now, pass them in validate mode
-		return GateResult{Gate: fmt.Sprintf("duration: %s", gate.Duration), Passed: true}
+		// Duration gate: require spec to spend minimum time in current stage before advancing.
+		// Computed from spec.Updated (when last modified) to now. If no valid updated date,
+		// timeInStage will be 0, which will fail the gate — intentional safety measure.
+		gateName := fmt.Sprintf("duration: %s", gate.Duration)
+		d, err := time.ParseDuration(gate.Duration)
+		if err != nil {
+			return GateResult{Gate: gateName, Passed: false, Reason: fmt.Sprintf("invalid duration %q: %v", gate.Duration, err)}
+		}
+		if ctx.Spec.TimeInStage >= d {
+			return GateResult{Gate: gateName, Passed: true}
+		}
+		remaining := d - ctx.Spec.TimeInStage
+		return GateResult{
+			Gate:   gateName,
+			Passed: false,
+			Reason: fmt.Sprintf("spec must remain in stage for %s (%s remaining)", gate.Duration, formatDuration(remaining)),
+		}
 	}
 
 	if gate.Expr != "" {
@@ -170,12 +202,41 @@ func evaluateGateWithContext(gate config.GateConfig, sections []markdown.Section
 	}
 
 	if gate.LinkExists != nil {
-		// Link exists gates will be implemented later
-		return GateResult{
-			Gate:   fmt.Sprintf("link_exists: %s", gate.LinkExists.Section),
-			Passed: true,
-			Reason: "link_exists gate not yet implemented",
+		gateName := fmt.Sprintf("link_exists: %s", gate.LinkExists.Section)
+		section := markdown.FindSection(sections, gate.LinkExists.Section)
+		if section == nil || strings.TrimSpace(section.Content) == "" {
+			return GateResult{
+				Gate:   gateName,
+				Passed: false,
+				Reason: fmt.Sprintf("section %q is empty or missing — add content with a link before advancing", humanizeSlug(gate.LinkExists.Section)),
+			}
 		}
+		links := linkPattern.FindAllString(section.Content, -1)
+		if len(links) == 0 {
+			return GateResult{
+				Gate:   gateName,
+				Passed: false,
+				Reason: fmt.Sprintf("no links found in section %q — add a URL before advancing", humanizeSlug(gate.LinkExists.Section)),
+			}
+		}
+		if gate.LinkExists.Type != "" {
+			domain := linkTypeToDomain(gate.LinkExists.Type)
+			found := false
+			for _, link := range links {
+				if strings.Contains(strings.ToLower(link), domain) {
+					found = true
+					break
+				}
+			}
+			if !found {
+				return GateResult{
+					Gate:   fmt.Sprintf("link_exists: %s (type: %s)", gate.LinkExists.Section, gate.LinkExists.Type),
+					Passed: false,
+					Reason: fmt.Sprintf("no %s link found in section %q", gate.LinkExists.Type, humanizeSlug(gate.LinkExists.Section)),
+				}
+			}
+		}
+		return GateResult{Gate: gateName, Passed: true}
 	}
 
 	// Unknown or empty gate
@@ -237,4 +298,35 @@ func evaluateNotGateWithContext(gate config.GateConfig, sections []markdown.Sect
 
 func humanizeSlug(slug string) string {
 	return strings.ReplaceAll(slug, "_", " ")
+}
+
+func linkTypeToDomain(linkType string) string {
+	switch strings.ToLower(linkType) {
+	case "figma":
+		return "figma.com"
+	case "github":
+		return "github.com"
+	case "confluence":
+		return "atlassian.net"
+	case "jira":
+		return "atlassian.net"
+	default:
+		return strings.ToLower(linkType)
+	}
+}
+
+func formatDuration(d time.Duration) string {
+	if d < time.Hour {
+		return fmt.Sprintf("%dm", int(d.Minutes()))
+	}
+	hours := int(d.Hours())
+	if hours < 24 {
+		return fmt.Sprintf("%dh %dm", hours, int(d.Minutes())%60)
+	}
+	days := hours / 24
+	remainHours := hours % 24
+	if remainHours == 0 {
+		return fmt.Sprintf("%dd", days)
+	}
+	return fmt.Sprintf("%dd %dh", days, remainHours)
 }

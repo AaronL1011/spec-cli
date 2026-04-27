@@ -3,7 +3,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/aaronl1011/spec-cli/internal/adapter"
 	gitpkg "github.com/aaronl1011/spec-cli/internal/git"
@@ -12,9 +11,9 @@ import (
 )
 
 var ejectCmd = &cobra.Command{
-	Use:   "eject <id>",
+	Use:   "eject [id]",
 	Short: "Log a blocker and transition to blocked status",
-	Args:  cobra.ExactArgs(1),
+	Args:  cobra.MaximumNArgs(1),
 	RunE:  runEject,
 }
 
@@ -24,7 +23,10 @@ func init() {
 }
 
 func runEject(cmd *cobra.Command, args []string) error {
-	specID := strings.ToUpper(args[0])
+	specID, err := resolveSpecIDArg(args, "spec eject <id>")
+	if err != nil {
+		return err
+	}
 	reason, _ := cmd.Flags().GetString("reason")
 
 	if reason == "" {
@@ -75,6 +77,12 @@ func runEject(cmd *cobra.Command, args []string) error {
 		fmt.Printf("🚫 %s blocked (was: %s)\n", specID, result.PreviousStage)
 		fmt.Printf("  Reason: %s\n", reason)
 		fmt.Printf("  Resume with: spec resume %s\n", specID)
+
+		if db, dbErr := openDB(); dbErr == nil {
+			defer func() { _ = db.Close() }()
+			metaJSON := fmt.Sprintf(`{"from_stage":%q,"reason":%q}`, result.PreviousStage, reason)
+			_ = db.ActivityLog(specID, "eject", fmt.Sprintf("blocked from %s", result.PreviousStage), metaJSON, rc.UserName())
+		}
 
 		return fmt.Sprintf("fix: eject %s — %s", specID, reason), nil
 	})

@@ -4,10 +4,11 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"time"
 
-	gh "github.com/google/go-github/v62/github"
 	"github.com/aaronl1011/spec-cli/internal/adapter"
+	gh "github.com/google/go-github/v62/github"
 )
 
 // DeployClient implements adapter.DeployAdapter using GitHub Actions workflow dispatch.
@@ -56,12 +57,21 @@ func (d *DeployClient) Trigger(ctx context.Context, repos []string, env string) 
 			},
 		)
 		if err != nil {
-			return nil, fmt.Errorf("dispatching deploy workflow for %s/%s: %w", d.owner, repo, err)
+			return nil, fmt.Errorf("dispatching deploy workflow for %s/%s: %w — token needs repo access and Actions workflow dispatch permission", d.owner, repo, err)
 		}
 	}
 
-	// GitHub doesn't return a run ID from dispatch. Return a pending stub
-	// immediately — callers use Status() to poll for the actual run.
+	run, err := d.latestDispatchedRun(ctx, repos[0])
+	if err == nil && run != nil {
+		return &adapter.DeployRun{
+			ID:     strconv.FormatInt(run.GetID(), 10),
+			Repo:   repos[0],
+			Env:    env,
+			Status: mapRunStatus(run.GetStatus(), run.GetConclusion()),
+			URL:    run.GetHTMLURL(),
+		}, nil
+	}
+
 	return &adapter.DeployRun{
 		ID:     "pending",
 		Repo:   repos[0],
@@ -95,6 +105,30 @@ func (d *DeployClient) Status(ctx context.Context, run *adapter.DeployRun) (*ada
 		URL:     workflowRun.GetHTMLURL(),
 		Message: fmt.Sprintf("Workflow: %s", workflowRun.GetName()),
 	}, nil
+}
+
+func (d *DeployClient) latestDispatchedRun(ctx context.Context, repo string) (*gh.WorkflowRun, error) {
+	for attempt := 0; attempt < 3; attempt++ {
+		runs, _, err := d.client.Actions.ListWorkflowRunsByFileName(ctx, d.owner, repo, d.workflow, &gh.ListWorkflowRunsOptions{
+			Event:       "workflow_dispatch",
+			Branch:      "main",
+			ListOptions: gh.ListOptions{PerPage: 1},
+		})
+		if err != nil {
+			return nil, fmt.Errorf("listing workflow runs for %s/%s: %w", d.owner, repo, err)
+		}
+		if len(runs.WorkflowRuns) > 0 {
+			return runs.WorkflowRuns[0], nil
+		}
+		timer := time.NewTimer(time.Duration(attempt+1) * 500 * time.Millisecond)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return nil, ctx.Err()
+		case <-timer.C:
+		}
+	}
+	return nil, nil
 }
 
 func mapRunStatus(status, conclusion string) string {

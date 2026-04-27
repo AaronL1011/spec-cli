@@ -120,6 +120,17 @@ func TestParseStorageToSections_WithMarkers(t *testing.T) {
 	}
 }
 
+func TestParseStorageToSections_WithNumericMarker(t *testing.T) {
+	storage := `<!-- spec-section: api_v2_plan -->
+<h2>API v2 Plan</h2>
+<p>Ship it.</p>`
+
+	sections := parseStorageToSections(storage)
+	if !strings.Contains(sections["api_v2_plan"], "Ship it") {
+		t.Fatalf("api_v2_plan content = %q, want content from numeric slug", sections["api_v2_plan"])
+	}
+}
+
 func TestStorageToMarkdown_Paragraphs(t *testing.T) {
 	storage := "<p>Hello <strong>world</strong>.</p><p>Second paragraph.</p>"
 	md := storageToMarkdown(storage)
@@ -191,6 +202,22 @@ func TestFetchSections_PageNotFound(t *testing.T) {
 	}
 	if sections != nil {
 		t.Errorf("expected nil sections for missing page, got %v", sections)
+	}
+}
+
+func TestFetchSections_DuplicatePageTitles_ReturnsError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(pagesResponse{Results: []pageResponse{
+			{ID: "1", Title: "SPEC-042"},
+			{ID: "2", Title: "SPEC-042"},
+		}})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "ENG", "user@example.com", "token")
+	_, err := client.FetchSections(context.Background(), "SPEC-042")
+	if err == nil {
+		t.Fatal("expected duplicate page error")
 	}
 }
 
