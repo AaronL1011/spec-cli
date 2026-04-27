@@ -136,7 +136,7 @@ func TestAll_Jira_MissingToken_Warning(t *testing.T) {
 		"base_url": "https://myorg.atlassian.net",
 	})
 	_, warnings := All(cfg)
-	if len(warnings) != 1 || !strings.Contains(warnings[0], "base_url and token required") {
+	if len(warnings) != 1 || !strings.Contains(warnings[0], "base_url, project_key, email, and token required") {
 		t.Errorf("expected token warning, got %v", warnings)
 	}
 }

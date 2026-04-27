@@ -117,6 +117,21 @@ func TestUpdateStatus_EmptyEpicKey_Noop(t *testing.T) {
 	}
 }
 
+func TestUpdateStatus_MissingTransition_ReturnsActionableError(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(transitionsResponse{
+			Transitions: []transition{{ID: "11", Name: "Done", To: transitionTo{Name: "Done"}}},
+		})
+	}))
+	defer server.Close()
+
+	client := NewClient(server.URL, "PLAT", "user@example.com", "token")
+	err := client.UpdateStatus(context.Background(), "PLAT-123", "build")
+	if err == nil {
+		t.Fatal("expected missing transition error")
+	}
+}
+
 func TestFetchUpdates_Success(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/rest/api/3/issue/PLAT-123" {

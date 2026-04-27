@@ -93,8 +93,17 @@ func runRevert(cmd *cobra.Command, args []string) error {
 			User:           rc.UserName(),
 			UserRole:       role,
 			Notifier:       &effects.NotifierAdapter{Comms: reg.Comms(), SpecID: specID, Title: meta.Title},
-			Webhooker:      &effects.WebhookerAdapter{},
-			Logger:         &effects.LoggerAdapter{DB: db, SpecDir: repoPath, SpecID: specID},
+			Syncer: &effects.SyncerAdapter{
+				Docs:             reg.Docs(),
+				DB:               db,
+				SpecDir:          repoPath,
+				ConflictStrategy: rc.Team.Sync.ConflictStrategy,
+				OwnerRole:        role,
+				UserName:         rc.UserName(),
+			},
+			PMUpdater: &effects.PMUpdaterAdapter{PM: reg.PM(), EpicKey: meta.EpicKey},
+			Webhooker: &effects.WebhookerAdapter{},
+			Logger:    &effects.LoggerAdapter{DB: db, SpecDir: repoPath, SpecID: specID},
 		}
 
 		if exitStage := resolvedPipeline.StageByName(previousStage); exitStage != nil {

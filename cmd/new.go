@@ -21,7 +21,7 @@ The command assigns the next available spec ID, applies the standard
 template, commits the file to the specs repo, and triggers configured
 notifications when integrations are enabled.`,
 	Example: "  spec new --title \"Auth token expiration fix\"",
-	RunE:  runNew,
+	RunE:    runNew,
 }
 
 func init() {
@@ -93,6 +93,9 @@ func runNew(cmd *cobra.Command, args []string) error {
 			warnf("could not create PM epic: %v", pmErr)
 		} else if epicKey != "" {
 			fmt.Printf("Created PM epic: %s\n", epicKey)
+			if err := persistEpicKey(rc, specID, epicKey); err != nil {
+				warnf("could not persist PM epic key: %v", err)
+			}
 		}
 	}
 

@@ -22,8 +22,8 @@ By default the command advances to the immediate next stage. Tech leads can
 optionally fast-track to a later stage with --to, and --dry-run previews
 gate checks and transition effects without persisting changes.`,
 	Example: "  spec advance SPEC-042\n  spec advance SPEC-042 --dry-run\n  spec advance SPEC-042 --to done",
-	Args:  cobra.ExactArgs(1),
-	RunE:  runAdvance,
+	Args:    cobra.ExactArgs(1),
+	RunE:    runAdvance,
 }
 
 func init() {
@@ -125,6 +125,7 @@ func runAdvance(cmd *cobra.Command, args []string) error {
 						TransitionType: effects.TransitionAdvance,
 						User:           rc.UserName(),
 						UserRole:       role,
+						DryRun:         true,
 					}
 					results := executor.Execute(context.Background(), stage.Transitions.Advance.Effects, execCtx)
 					for _, r := range results {
@@ -167,8 +168,17 @@ func runAdvance(cmd *cobra.Command, args []string) error {
 			User:           rc.UserName(),
 			UserRole:       role,
 			Notifier:       &effects.NotifierAdapter{Comms: reg.Comms(), SpecID: specID, Title: meta.Title},
-			Webhooker:      &effects.WebhookerAdapter{},
-			Logger:         &effects.LoggerAdapter{DB: db, SpecDir: repoPath, SpecID: specID},
+			Syncer: &effects.SyncerAdapter{
+				Docs:             reg.Docs(),
+				DB:               db,
+				SpecDir:          repoPath,
+				ConflictStrategy: rc.Team.Sync.ConflictStrategy,
+				OwnerRole:        role,
+				UserName:         rc.UserName(),
+			},
+			PMUpdater: &effects.PMUpdaterAdapter{PM: reg.PM(), EpicKey: meta.EpicKey},
+			Webhooker: &effects.WebhookerAdapter{},
+			Logger:    &effects.LoggerAdapter{DB: db, SpecDir: repoPath, SpecID: specID},
 		}
 
 		resolvedPipeline, _ := pipeline.Resolve(rc.Team.Pipeline)
@@ -190,6 +200,13 @@ func runAdvance(cmd *cobra.Command, args []string) error {
 		if enterStage := resolvedPipeline.StageByName(target); enterStage != nil {
 			if len(enterStage.OnEnter) > 0 {
 				runEffects(executor, enterStage.OnEnter, execCtx)
+			}
+		}
+		if rc.Team.Sync.OutboundOnAdvance && execCtx.Syncer != nil {
+			if err := execCtx.Syncer.Sync(context.Background(), "out", specID); err != nil {
+				warnf("outbound sync failed: %v", err)
+			} else {
+				fmt.Printf("  → synced out\n")
 			}
 		}
 

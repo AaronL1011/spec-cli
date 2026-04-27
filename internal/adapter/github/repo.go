@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	gh "github.com/google/go-github/v62/github"
 	"github.com/aaronl1011/spec-cli/internal/adapter"
+	gh "github.com/google/go-github/v62/github"
 )
 
 // RepoClient implements adapter.RepoAdapter using the GitHub REST API.
@@ -49,7 +49,7 @@ func (r *RepoClient) ListPRs(ctx context.Context, repos []string, specID string)
 			},
 		})
 		if err != nil {
-			return nil, fmt.Errorf("listing PRs for %s/%s: %w", r.owner, repo, err)
+			return nil, fmt.Errorf("listing PRs for %s/%s: %w — token needs Pull Requests read access", r.owner, repo, err)
 		}
 		for _, pr := range prs {
 			branch := pr.GetHead().GetRef()
@@ -65,12 +65,12 @@ func (r *RepoClient) ListPRs(ctx context.Context, repos []string, specID string)
 func (r *RepoClient) PRStatus(ctx context.Context, repo string, prNumber int) (*adapter.PRDetail, error) {
 	pr, _, err := r.client.PullRequests.Get(ctx, r.owner, repo, prNumber)
 	if err != nil {
-		return nil, fmt.Errorf("getting PR #%d in %s/%s: %w", prNumber, r.owner, repo, err)
+		return nil, fmt.Errorf("getting PR #%d in %s/%s: %w — token needs Pull Requests read access", prNumber, r.owner, repo, err)
 	}
 
 	reviews, _, err := r.client.PullRequests.ListReviews(ctx, r.owner, repo, prNumber, &gh.ListOptions{PerPage: 100})
 	if err != nil {
-		return nil, fmt.Errorf("listing reviews for PR #%d in %s/%s: %w", prNumber, r.owner, repo, err)
+		return nil, fmt.Errorf("listing reviews for PR #%d in %s/%s: %w — token needs Pull Requests read access", prNumber, r.owner, repo, err)
 	}
 
 	approved := false
@@ -85,7 +85,7 @@ func (r *RepoClient) PRStatus(ctx context.Context, repo string, prNumber int) (*
 		ListOptions: gh.ListOptions{PerPage: 100},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("listing comments for PR #%d in %s/%s: %w", prNumber, r.owner, repo, err)
+		return nil, fmt.Errorf("listing comments for PR #%d in %s/%s: %w — token needs Pull Requests read access", prNumber, r.owner, repo, err)
 	}
 
 	ciStatus := fetchCIStatus(ctx, r.client, r.owner, repo, pr.GetHead().GetSHA())
@@ -107,7 +107,7 @@ func (r *RepoClient) SetPRDescription(ctx context.Context, repo string, prNumber
 		Body: strPtr(body),
 	})
 	if err != nil {
-		return fmt.Errorf("setting description for PR #%d in %s/%s: %w", prNumber, r.owner, repo, err)
+		return fmt.Errorf("setting description for PR #%d in %s/%s: %w — token needs Pull Requests write access", prNumber, r.owner, repo, err)
 	}
 	return nil
 }
@@ -123,7 +123,7 @@ func (r *RepoClient) RequestedReviews(ctx context.Context, user string) ([]adapt
 		},
 	})
 	if err != nil {
-		return nil, fmt.Errorf("searching review requests for %s: %w", user, err)
+		return nil, fmt.Errorf("searching review requests for %s: %w — token needs repository metadata and Pull Requests read access", user, err)
 	}
 
 	var prs []adapter.PullRequest

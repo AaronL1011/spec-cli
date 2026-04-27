@@ -100,6 +100,12 @@ func resolveComms(cfg *config.TeamConfig) (adapter.CommsAdapter, string) {
 		graphToken := cfg.Integrations.Comms.Get("graph_token")
 		teamID := cfg.Integrations.Comms.Get("team_id")
 		channelID := cfg.Integrations.Comms.Get("channel_id")
+		if graphToken != "" || teamID != "" || channelID != "" {
+			if graphToken == "" || teamID == "" || channelID == "" {
+				return teams.NewClient(webhookURL, standupWebhook, graphToken, teamID, channelID),
+					"teams: graph_token, team_id, and channel_id are all required for mention sync — outbound comms enabled"
+			}
+		}
 		return teams.NewClient(webhookURL, standupWebhook, graphToken, teamID, channelID), ""
 	case "discord":
 		return noop.Comms{}, "discord adapter not yet implemented — comms disabled"
@@ -118,8 +124,8 @@ func resolvePM(cfg *config.TeamConfig) (adapter.PMAdapter, string) {
 		projectKey := cfg.Integrations.PM.Get("project_key")
 		email := cfg.Integrations.PM.Get("email")
 		token := cfg.Integrations.PM.Get("token")
-		if baseURL == "" || token == "" {
-			return noop.PM{}, "jira: base_url and token required — PM disabled"
+		if baseURL == "" || projectKey == "" || email == "" || token == "" {
+			return noop.PM{}, "jira: base_url, project_key, email, and token required — PM disabled"
 		}
 		return jira.NewClient(baseURL, projectKey, email, token), ""
 	case "linear", "github-issues":
@@ -139,8 +145,8 @@ func resolveDocs(cfg *config.TeamConfig) (adapter.DocsAdapter, string) {
 		spaceKey := cfg.Integrations.Docs.Get("space_key")
 		email := cfg.Integrations.Docs.Get("email")
 		token := cfg.Integrations.Docs.Get("token")
-		if baseURL == "" || token == "" {
-			return noop.Docs{}, "confluence: base_url and token required — docs disabled"
+		if baseURL == "" || spaceKey == "" || email == "" || token == "" {
+			return noop.Docs{}, "confluence: base_url, space_key, email, and token required — docs disabled"
 		}
 		return confluence.NewClient(baseURL, spaceKey, email, token), ""
 	case "notion":

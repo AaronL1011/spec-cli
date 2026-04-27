@@ -11,6 +11,7 @@ import (
 	"github.com/aaronl1011/spec-cli/internal/adapter"
 	"github.com/aaronl1011/spec-cli/internal/markdown"
 	"github.com/aaronl1011/spec-cli/internal/store"
+	syncengine "github.com/aaronl1011/spec-cli/internal/sync"
 )
 
 // NotifierAdapter bridges adapter.CommsAdapter to the Notifier interface.
@@ -85,4 +86,45 @@ func (l *LoggerAdapter) LogEvent(ctx context.Context, specID, event string, data
 	}
 	meta, _ := json.Marshal(data)
 	return l.DB.ActivityLog(specID, event, event, string(meta), "system")
+}
+
+// SyncerAdapter bridges the sync engine to pipeline transition effects.
+type SyncerAdapter struct {
+	Docs             adapter.DocsAdapter
+	DB               *store.DB
+	SpecDir          string
+	ConflictStrategy string
+	OwnerRole        string
+	UserName         string
+	DryRun           bool
+}
+
+func (s *SyncerAdapter) Sync(ctx context.Context, direction, specID string) error {
+	if s.Docs == nil || s.SpecDir == "" {
+		return nil
+	}
+	engine := syncengine.NewEngine(s.Docs, s.DB)
+	_, err := engine.Run(ctx, syncengine.Options{
+		SpecID:           specID,
+		SpecPath:         s.SpecDir + "/" + specID + ".md",
+		Direction:        direction,
+		ConflictStrategy: s.ConflictStrategy,
+		OwnerRole:        s.OwnerRole,
+		UserName:         s.UserName,
+		DryRun:           s.DryRun,
+	})
+	return err
+}
+
+// PMUpdaterAdapter bridges adapter.PMAdapter to the PMUpdater interface.
+type PMUpdaterAdapter struct {
+	PM      adapter.PMAdapter
+	EpicKey string
+}
+
+func (p *PMUpdaterAdapter) UpdateStatus(ctx context.Context, status string) error {
+	if p.PM == nil || p.EpicKey == "" {
+		return nil
+	}
+	return p.PM.UpdateStatus(ctx, p.EpicKey, status)
 }

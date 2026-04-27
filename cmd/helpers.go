@@ -10,6 +10,7 @@ import (
 	"github.com/aaronl1011/spec-cli/internal/adapter/noop"
 	"github.com/aaronl1011/spec-cli/internal/adapter/resolve"
 	"github.com/aaronl1011/spec-cli/internal/config"
+	gitpkg "github.com/aaronl1011/spec-cli/internal/git"
 	"github.com/aaronl1011/spec-cli/internal/markdown"
 	"github.com/aaronl1011/spec-cli/internal/store"
 )
@@ -126,4 +127,28 @@ func ctx() context.Context {
 // that should not block the command but should be visible to the user.
 func warnf(format string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "warning: "+format+"\n", args...)
+}
+
+func persistEpicKey(rc *config.ResolvedConfig, specID, epicKey string) error {
+	if epicKey == "" {
+		return nil
+	}
+	return gitpkg.WithSpecsRepo(context.Background(), &rc.Team.SpecsRepo, func(repoPath string) (string, error) {
+		path, err := specPathIn(repoPath, rc, specID)
+		if err != nil {
+			return "", err
+		}
+		meta, err := readSpecMeta(path)
+		if err != nil {
+			return "", err
+		}
+		if meta.EpicKey == epicKey {
+			return "", nil
+		}
+		meta.EpicKey = epicKey
+		if err := markdown.WriteMeta(path, meta); err != nil {
+			return "", err
+		}
+		return fmt.Sprintf("chore: link %s to epic %s", specID, epicKey), nil
+	})
 }

@@ -123,7 +123,9 @@ func runStandup(cmd *cobra.Command, args []string) error {
 	// Mentions from comms
 	if rc.HasIntegration("comms") {
 		mentions, err := reg.Comms().FetchMentions(ctx(), since)
-		if err == nil && len(mentions) > 0 {
+		if err != nil {
+			warnf("could not fetch comms mentions: %v", err)
+		} else if len(mentions) > 0 {
 			fmt.Println("\nRecent mentions:")
 			for _, m := range mentions {
 				fmt.Printf("  • %s in #%s: %s\n", m.SpecID, m.Channel, m.Preview)

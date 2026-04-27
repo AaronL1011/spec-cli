@@ -106,7 +106,7 @@ func (c *Client) findPage(ctx context.Context, specID string) (string, error) {
 
 	// Search by title using CQL
 	cql := fmt.Sprintf(`space="%s" AND title="%s"`, c.spaceKey, specID)
-	url := fmt.Sprintf("%s/api/v2/pages?spaceKey=%s&title=%s&limit=1",
+	url := fmt.Sprintf("%s/api/v2/pages?spaceKey=%s&title=%s&limit=2",
 		c.baseURL, c.spaceKey, specID)
 
 	resp, err := c.doRequest(ctx, http.MethodGet, url, nil)
@@ -131,6 +131,9 @@ func (c *Client) findPage(ctx context.Context, specID string) (string, error) {
 
 	if len(result.Results) == 0 {
 		return "", nil
+	}
+	if len(result.Results) > 1 {
+		return "", fmt.Errorf("multiple Confluence pages found for %s in space %s — ensure spec page titles are unique", specID, c.spaceKey)
 	}
 
 	pageID := result.Results[0].ID
@@ -423,7 +426,7 @@ func parseStorageToSections(storage string) map[string]string {
 	sections := make(map[string]string)
 
 	// Split on spec-section markers
-	markerPattern := regexp.MustCompile(`<!-- spec-section: ([a-z_]+) -->`)
+	markerPattern := regexp.MustCompile(`<!--\s*spec-section:\s*([a-z0-9_]+)\s*-->`)
 	headingPattern := regexp.MustCompile(`<h(\d)>(.*?)</h\d>`)
 
 	parts := markerPattern.Split(storage, -1)
