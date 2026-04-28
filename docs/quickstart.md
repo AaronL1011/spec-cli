@@ -14,13 +14,20 @@ Welcome to the `spec` pilot program. This guide gets you from zero to productive
 
 ### Option A: Go install (recommended)
 
-Requires Go 1.21+:
+Requires Go 1.25+:
 
 ```bash
 go install github.com/aaronl1011/spec@latest
 ```
 
-### Option B: Download binary
+
+### Option B: Homebrew
+
+```bash
+brew install aaronl1011/tap/spec
+```
+
+### Option C: Download binary
 
 Download from [GitHub Releases](https://github.com/aaronl1011/spec/releases) for your platform.
 
